@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=VendorSaathi Backend API
+      - API_V1_STR=/api/v1
+      - SECRET_KEY=vendorsathi_jwt_production_secret_key_987654321
+      - DATABASE_URL=sqlite:///./vendorsathi.db
+      - DEMO_MODE=true
+      - CORS_ORIGINS=["*"]
+    volumes:
+      - backend_data:/app
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:
