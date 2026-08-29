@@ -1,6 +1,10 @@
+from pathlib import Path
 from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+DEFAULT_DB_PATH = (BACKEND_DIR / "vendorsathi.db").as_posix()
 
 
 class Settings(BaseSettings):
@@ -10,8 +14,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
     ALGORITHM: str = "HS256"
 
-    # Database connection URL
-    DATABASE_URL: str = "sqlite:///./vendorsathi.db"
+    # Database connection URL - anchored to backend/vendorsathi.db
+    DATABASE_URL: str = f"sqlite:///{DEFAULT_DB_PATH}"
 
     # CORS
     CORS_ORIGINS: List[str] = [
