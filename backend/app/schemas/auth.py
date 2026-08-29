@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from app.models.user import UserRole, LanguagePreference
 
 
@@ -47,5 +47,4 @@ class UserResponse(BaseModel):
     language_pref: LanguagePreference
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.models.sale import PaymentMode
 
 
@@ -34,8 +34,7 @@ class SaleItemResponse(BaseModel):
     subtotal: float
     profit: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SaleResponse(BaseModel):
@@ -57,8 +56,7 @@ class SaleResponse(BaseModel):
     created_at: datetime
     items: List[SaleItemResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProfitTrendPoint(BaseModel):
