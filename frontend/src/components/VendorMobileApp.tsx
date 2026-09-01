@@ -93,13 +93,13 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
           body: JSON.stringify({ phone: loginPhone, password: loginPin })
         });
         const token = (await loginRes.json()).data?.access_token || authToken;
-        await fetch('http://localhost:8000/api/v1/sync/upload-mutations', {
+        await fetch('http://localhost:8000/api/v1/sync/batch-upload', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(offlineQueue)
+          body: JSON.stringify({ mutations: offlineQueue })
         });
       } catch (_) {}
       setOfflineQueue([]);

@@ -18,6 +18,7 @@ from app.schemas.common import APIResponse
 router = APIRouter()
 
 
+@router.post("", response_model=APIResponse[SaleResponse], status_code=status.HTTP_201_CREATED)
 @router.post("/record", response_model=APIResponse[SaleResponse], status_code=status.HTTP_201_CREATED)
 def record_pos_sale(
     sale_in: SaleCreate,
