@@ -48,9 +48,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         
         {/* Logo & Slogan */}
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center shadow-md shadow-orange-200 text-white font-bold text-xl">
-            ವ
-          </div>
+          <img 
+            src="/vendorsathi_logo.jpg" 
+            alt="VendorSaathi Logo" 
+            className="w-10 h-10 rounded-2xl object-cover shadow-md shadow-orange-500/20 ring-2 ring-orange-200" 
+          />
           <div>
             <div className="flex items-center space-x-2">
               <span className="text-xl font-black tracking-tight bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">

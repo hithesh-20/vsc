@@ -1276,9 +1276,11 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
               {/* Vendor Verified Header */}
               <div className="flex justify-between items-center relative z-10">
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-lg shadow-sm border border-white/30">
-                    🛒
-                  </div>
+                  <img 
+                    src="/vendorsathi_logo.jpg" 
+                    alt="VendorSaathi Logo" 
+                    className="w-9 h-9 rounded-2xl object-cover shadow-sm ring-2 ring-white/50" 
+                  />
                   <div>
                     <h3 className="font-black text-xs text-white tracking-wide flex items-center space-x-1.5">
                       <span>{vendorUser?.business_name || 'Ramesh Fresh Cart'}</span>

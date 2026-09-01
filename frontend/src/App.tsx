@@ -41,9 +41,11 @@ export const App: React.FC = () => {
           
           {/* Logo & Vendor Cart Status */}
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white font-black text-lg shadow-md shadow-orange-500/25 ring-2 ring-orange-200">
-              {currentLangConfig.flag}
-            </div>
+            <img 
+              src="/vendorsathi_logo.jpg" 
+              alt="VendorSaathi Logo" 
+              className="w-10 h-10 rounded-2xl object-cover shadow-md shadow-orange-500/20 ring-2 ring-orange-200" 
+            />
             <div>
               <div className="flex items-center space-x-2">
                 <span className="font-black text-orange-950 text-base tracking-wide">VendorSaathi</span>

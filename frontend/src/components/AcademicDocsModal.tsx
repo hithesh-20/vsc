@@ -81,6 +81,27 @@ export const AcademicDocsModal: React.FC<AcademicDocsModalProps> = ({ isOpen, on
             
             {activeSection === '1' && (
               <div className="space-y-4 animate-in fade-in">
+                <div className="relative rounded-3xl overflow-hidden shadow-lg border border-orange-200">
+                  <img 
+                    src="/vendorsathi_hero.jpg" 
+                    alt="VendorSaathi Mobile Street Commerce" 
+                    className="w-full h-52 sm:h-64 object-cover" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-4">
+                    <div className="flex items-center space-x-3 text-white">
+                      <img 
+                        src="/vendorsathi_logo.jpg" 
+                        alt="Logo" 
+                        className="w-12 h-12 rounded-2xl object-cover ring-2 ring-white shadow-md" 
+                      />
+                      <div>
+                        <h4 className="font-black text-base drop-shadow">VendorSaathi (ವೆಂಡರ್‌ಸಾಥಿ)</h4>
+                        <p className="text-xs text-orange-200 font-medium">Digital Operating System for Indian Street & Village Push-Cart Vendors</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <h3 className="text-xl font-black text-slate-900 border-b pb-2">1. INTRODUCTION</h3>
                 <p><strong>Why VendorSaathi?</strong></p>
                 <p>
