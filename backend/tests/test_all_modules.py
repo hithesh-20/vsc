@@ -367,3 +367,44 @@ def test_customer_order_lifecycle():
     })
     assert comp_resp.status_code == 200
     assert comp_resp.json()["data"]["status"] == "COMPLETED"
+
+
+def test_mandi_wholesale_rates_and_intelligence():
+    """Verify live APMC wholesale Mandi commodity prices and buyer advisory."""
+    resp = client.get("/api/v1/mandi/rates?market=Bengaluru")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert "commodities" in data
+    assert len(data["commodities"]) >= 5
+    first_item = data["commodities"][0]
+    assert "modal_price_per_kg" in first_item
+    assert "recommended_retail_price" in first_item
+    assert "expected_profit_margin_pct" in first_item
+    assert len(data["buyer_advisory_kn"]) > 0
+
+
+def test_vendor_svanidhi_credit_scorecard():
+    """Verify AI-driven PM SVANidhi micro-credit creditworthiness scorecard calculation."""
+    vend_login = client.post("/api/v1/auth/login", json={"phone": "9876543210", "password": "1234"})
+    token = vend_login.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = client.get("/api/v1/mandi/credit-scorecard", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert 300 <= data["credit_score"] <= 900
+    assert "eligible_svanidhi_loan_tier" in data
+    assert data["max_preapproved_loan_amount"] >= 10000.0
+    assert data["interest_subsidy_eligible"] is True
+    assert len(data["key_strengths_kn"]) > 0
+
+
+def test_mandi_commodity_trend_analysis():
+    """Verify top gainers, losers, and price changes in Mandi report."""
+    resp = client.get("/api/v1/mandi/rates?market=Yeshwanthpur")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert "top_gainers" in data
+    assert "top_losers" in data
+    assert data["total_commodities_tracked"] > 0
+
