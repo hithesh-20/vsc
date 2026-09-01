@@ -3,6 +3,7 @@ import { X, Plus, Minus, Star, Clock, MapPin, CheckCircle, Phone, Bell, Zap, Shi
 import { Vendor, Product } from '../types';
 import { api } from '../services/api';
 import { sounds } from '../services/sound';
+import { getProductLocalizedName } from '../services/i18n';
 
 interface StorefrontModalProps {
   vendor: Vendor | null;
@@ -129,7 +130,7 @@ export const StorefrontModal: React.FC<StorefrontModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
           <div className="flex items-center justify-between">
             <h4 className="font-black text-base text-slate-900">
-              {language === 'kn' ? 'ತಾಜಾ ಮಂಡಿ ಸರಕುಗಳು (Available Fresh Stock)' : 'Today\'s Fresh Produce'}
+              {language === 'kn' ? 'ತಾಜಾ ಮಂಡಿ ಸರಕುಗಳು' : 'Today\'s Fresh Produce'}
             </h4>
             <span className="text-xs text-slate-400 font-bold">
               {products.length} {language === 'kn' ? 'ವಸ್ತುಗಳು ಲಭ್ಯವಿದೆ' : 'items ready to deliver'}
@@ -138,7 +139,7 @@ export const StorefrontModal: React.FC<StorefrontModalProps> = ({
 
           {isLoading ? (
             <div className="py-12 text-center text-slate-400 text-xs">
-              ದಾಸ್ತಾನು ಲೋಡ್ ಆಗುತ್ತಿದೆ (Loading catalog)...
+              {language === 'kn' ? 'ದಾಸ್ತಾನು ಲೋಡ್ ಆಗುತ್ತಿದೆ...' : 'Loading catalog...'}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -159,15 +160,15 @@ export const StorefrontModal: React.FC<StorefrontModalProps> = ({
                         <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                           isLow ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
                         }`}>
-                          {isLow ? 'Limited Stock' : 'Farm Fresh'}
+                          {isLow ? (language === 'kn' ? 'ಸೀಮಿತ ದಾಸ್ತಾನು' : 'Limited Stock') : (language === 'kn' ? 'ತಾಜಾ ಸರಕು' : 'Farm Fresh')}
                         </span>
                       </div>
 
                       <h5 className="font-extrabold text-sm text-slate-900 mt-1">
-                        {language === 'kn' && product.name_kn ? product.name_kn : product.name_en}
+                        {getProductLocalizedName(product, language)}
                       </h5>
                       <span className="text-xs text-slate-400 font-medium">
-                        Stock: {product.current_stock} {product.unit}
+                        {language === 'kn' ? `ದಾಸ್ತಾನು: ${product.current_stock} ${product.unit}` : `Stock: ${product.current_stock} ${product.unit}`}
                       </span>
                     </div>
 

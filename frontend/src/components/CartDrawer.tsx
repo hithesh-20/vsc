@@ -3,6 +3,7 @@ import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck, QrCode, CheckCircle2, 
 import { CartItem, Order } from '../types';
 import { api } from '../services/api';
 import { sounds } from '../services/sound';
+import { getProductLocalizedName } from '../services/i18n';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -142,7 +143,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 >
                   <div>
                     <h4 className="font-extrabold text-sm text-slate-900">
-                      {language === 'kn' && item.product.name_kn ? item.product.name_kn : item.product.name_en}
+                      {getProductLocalizedName(item.product, language)}
                     </h4>
                     <span className="text-xs text-slate-500">
                       {item.quantity} {item.product.unit} × ₹{item.product.selling_price}

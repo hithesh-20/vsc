@@ -53,6 +53,177 @@ export function formatLocalizedCurrency(amount: number, lang: string = 'en', cur
   }
 }
 
+export const PRODUCT_COMMODITY_TRANSLATIONS: { [key: string]: { [lang: string]: string } } = {
+  'tomato': {
+    kn: 'ನಾಟಿ ಟೊಮೇಟೊ',
+    hi: 'देशी टमाटर',
+    ta: 'நாட்டு தக்காளி',
+    te: 'నాటు టమాటా',
+    mr: 'टोमॅटो',
+    bn: 'টমেটো',
+    gu: 'ટામેટા',
+    pa: 'ਟਮਾਟਰ',
+    ml: 'തക്കാളി',
+    en: 'Native Tomato'
+  },
+  'onion': {
+    kn: 'ಈರುಳ್ಳಿ',
+    hi: 'पुणे प्याज',
+    ta: 'வெங்காயம்',
+    te: 'ఉల్లిపాయలు',
+    mr: 'कांदा',
+    bn: 'পেঁয়াজ',
+    gu: 'ડુંગળી',
+    pa: 'ਪਿਆਜ਼',
+    ml: 'ഉള്ളി',
+    en: 'Pune Onion'
+  },
+  'potato': {
+    kn: 'ಹಾಸನ ಆಲೂಗಡ್ಡೆ',
+    hi: 'हसन आलू',
+    ta: 'உருளைக்கிழங்கு',
+    te: 'బంగాళాదుంప',
+    mr: 'बटाटा',
+    bn: 'আলু',
+    gu: 'બટાકા',
+    pa: 'ਆਲੂ',
+    ml: 'ഉരുളക്കിഴങ്ങ്',
+    en: 'Hassan Potato'
+  },
+  'chilli': {
+    kn: 'ಹಸಿ ಮೆಣಸಿನಕಾಯಿ',
+    hi: 'हरी मिर्च',
+    ta: 'பச்சை மிளகாய்',
+    te: 'పచ్చి మిర్చి',
+    mr: 'हिरवी मिरची',
+    bn: 'কাঁচা মরিচ',
+    gu: 'લીલા મરચાં',
+    pa: 'ਹਰੀ ਮਿਰਚ',
+    ml: 'പച്ചമുളക്',
+    en: 'Green Chilli'
+  },
+  'coriander': {
+    kn: 'ತಾಜಾ ಕೊತ್ತಂಬರಿ ಸೊಪ್ಪು',
+    hi: 'ताज़ा हरा धनिया',
+    ta: 'கொத்தமல்லி தழை',
+    te: 'కొత్తిమీర',
+    mr: 'कोथिंबीर',
+    bn: 'ধনে পাতা',
+    gu: 'કોથમીર',
+    pa: 'ਧਨੀਆ',
+    ml: 'മല്ലിയില',
+    en: 'Fresh Coriander'
+  },
+  'apple': {
+    kn: 'ಶಿಮ್ಲಾ ಸೇಬು',
+    hi: 'शिमला सेब',
+    ta: 'சிம்லா ஆப்பிள்',
+    te: 'సిమ్లా ఆపిల్',
+    mr: 'सफरचंद',
+    bn: 'আপেল',
+    gu: 'સફરજન',
+    pa: 'ਸੇਬ',
+    ml: 'ആപ്പിൾ',
+    en: 'Shimla Apple'
+  },
+  'banana': {
+    kn: 'ರೋಬಸ್ಟಾ ಬಾಳೆಹಣ್ಣು',
+    hi: 'रोबस्टा केला',
+    ta: 'வாழைப்பழம்',
+    te: 'అరటిపండు',
+    mr: 'केळी',
+    bn: 'কলা',
+    gu: 'કેળા',
+    pa: 'ਕੇਲਾ',
+    ml: 'വാഴപ്പഴം',
+    en: 'Robusta Banana'
+  },
+  'ginger': {
+    kn: 'ಹಸಿ ಶುಂಠಿ',
+    hi: 'अदरक',
+    ta: 'இஞ்சி',
+    te: 'అల్లం',
+    mr: 'आले',
+    bn: 'আদা',
+    gu: 'આદુ',
+    pa: 'ਅਦਰਕ',
+    ml: 'ഇഞ്ചി',
+    en: 'Fresh Ginger'
+  },
+  'carrot': {
+    kn: 'ಕ್ಯಾರೆಟ್',
+    hi: 'गाजर',
+    ta: 'கேரட்',
+    te: 'క్యారెట్',
+    mr: 'गाजर',
+    bn: 'গাজর',
+    gu: 'ગાજર',
+    pa: 'ਗਾਜਰ',
+    ml: 'കാരറ്റ്',
+    en: 'Carrot'
+  },
+  'cucumber': {
+    kn: 'ಸೌತೆಕಾಯಿ',
+    hi: 'खीरा',
+    ta: 'வெள்ளரிக்காய்',
+    te: 'దోసకాయ',
+    mr: 'काकडी',
+    bn: 'শসা',
+    gu: 'કાકડી',
+    pa: 'ਖੀਰਾ',
+    ml: 'വെള്ളരിക്ക',
+    en: 'Cucumber'
+  },
+  'spinach': {
+    kn: 'ಪಾಲಕ್ ಸೊಪ್ಪು',
+    hi: 'पालक',
+    ta: 'பசலைக்கீரை',
+    te: 'పాలకూర',
+    mr: 'पालक',
+    bn: 'পালং শাক',
+    gu: 'પાલક',
+    pa: 'ਪਾਲਕ',
+    ml: 'ചീര',
+    en: 'Spinach'
+  },
+  'lemon': {
+    kn: 'ನಿಂಬೆಹಣ್ಣು',
+    hi: 'नींबू',
+    ta: 'எலுமிச்சை',
+    te: 'నిమ్మకాయ',
+    mr: 'लिंबू',
+    bn: 'লেবু',
+    gu: 'લીંબુ',
+    pa: 'ਨਿੰਬੂ',
+    ml: 'നാരങ്ങ',
+    en: 'Lemon'
+  }
+};
+
+export function getProductLocalizedName(product: any, lang: string = 'kn'): string {
+  if (!product) return '';
+  const searchKey = ((product.name_en || '') + ' ' + (product.name_kn || '') + ' ' + (product.name || '')).toLowerCase();
+  
+  for (const [key, mapping] of Object.entries(PRODUCT_COMMODITY_TRANSLATIONS)) {
+    if (searchKey.includes(key)) {
+      return mapping[lang] || mapping.kn || mapping.en || product.name_en || product.name_kn;
+    }
+  }
+  
+  if (lang === 'en') return product.name_en || product.name_kn || product.name || '';
+  if (lang === 'kn') return product.name_kn || product.name_en || product.name || '';
+  if (lang === 'hi') return product.name_hi || product.name_kn || product.name_en || '';
+  if (lang === 'ta') return product.name_ta || product.name_kn || product.name_en || '';
+  if (lang === 'te') return product.name_te || product.name_kn || product.name_en || '';
+  if (lang === 'mr') return product.name_mr || product.name_hi || product.name_kn || product.name_en || '';
+  if (lang === 'bn') return product.name_bn || product.name_hi || product.name_kn || product.name_en || '';
+  if (lang === 'gu') return product.name_gu || product.name_hi || product.name_kn || product.name_en || '';
+  if (lang === 'pa') return product.name_pa || product.name_hi || product.name_kn || product.name_en || '';
+  if (lang === 'ml') return product.name_ml || product.name_ta || product.name_kn || product.name_en || '';
+
+  return product.name_kn || product.name_en || product.name || '';
+}
+
 export const VENDOR_TRANSLATIONS: { [code: string]: any } = {
   kn: {
     vendorTitle: "ರಮೇಶ್ ತಾಜಾ ತರಕಾರಿಗಳು",

@@ -103,9 +103,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Language Selector Popover Menu */}
             {isLangDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in zoom-in-95 duration-150 max-h-80 overflow-y-auto">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in zoom-in-95 duration-150 max-h-80 overflow-y-auto">
                 <div className="px-3 py-1 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1">
-                  Select Regional Language (ಪ್ರಾದೇಶಿಕ ಭಾಷೆ)
+                  {language === 'kn' ? 'ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ' : (language === 'hi' ? 'भाषा चुनें' : (language === 'ta' ? 'மொழியைத் தேர்ந்தெடுக்கவும்' : (language === 'te' ? 'భాషను ఎంచుకోండి' : 'Select Language')))}
                 </div>
                 {ALL_REGIONAL_LANGUAGES.map((lang) => {
                   const isSelected = lang.code === language;
@@ -124,10 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <div className="flex items-center space-x-2">
                         <span>{lang.flag}</span>
-                        <span>{lang.name}</span>
-                        <span className={`text-[11px] ${isSelected ? 'text-orange-100' : 'text-slate-400'}`}>
-                          ({lang.nameEn})
-                        </span>
+                        <span className="font-extrabold">{lang.name}</span>
                       </div>
                       {isSelected && <Check className="w-3.5 h-3.5" />}
                     </button>

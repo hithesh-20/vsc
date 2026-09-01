@@ -6,7 +6,7 @@ import {
   Smartphone, Monitor, BookOpen, MapPin, Radio, ShieldCheck, 
   Sparkles, CloudSun, Languages, CheckCircle2 
 } from 'lucide-react';
-import { ALL_REGIONAL_LANGUAGES, VENDOR_TRANSLATIONS } from './services/i18n';
+import { ALL_REGIONAL_LANGUAGES, VENDOR_TRANSLATIONS, formatLocalizedNumber } from './services/i18n';
 import { SUPPORTED_CURRENCIES, getStoredCurrency, setStoredCurrency } from './services/currency';
 
 export const App: React.FC = () => {
@@ -94,9 +94,15 @@ export const App: React.FC = () => {
         <div className="bg-orange-500/10 border-b border-orange-200/70 px-4 py-2 text-xs font-bold text-orange-900 flex items-center justify-center space-x-2 backdrop-blur">
           <CloudSun className="w-4 h-4 text-orange-600 flex-shrink-0 animate-pulse" />
           <span>
-            {weatherAdvisory.weather_condition_kn && currentLanguage === 'kn'
-              ? `${weatherAdvisory.weather_condition_kn} (${weatherAdvisory.temperature_celsius}°C) • ${weatherAdvisory.advisory_kn}`
-              : `${weatherAdvisory.weather_condition} (${weatherAdvisory.temperature_celsius}°C) • ${weatherAdvisory.advisory}`}
+            {currentLanguage === 'kn'
+              ? `${weatherAdvisory.weather_condition_kn || 'ಸ್ವಚ್ಛ ಬಿಸಿಲು'} (${formatLocalizedNumber(weatherAdvisory.temperature_celsius, currentLanguage)}°C) • ${weatherAdvisory.advisory_kn || 'ಇಂದು ಬೀದಿಬದಿ ಗಾಡಿ ವ್ಯಾಪಾರಕ್ಕೆ ಅತ್ಯುತ್ತಮ ಹವಾಮಾನ. ಸೊಪ್ಪುಗಳಿಗೆ ಹಗುರವಾಗಿ ನೀರು ಚಿಮುಕಿಸಿ.'}`
+              : (currentLanguage === 'hi'
+                  ? `${weatherAdvisory.weather_condition_hi || 'साफ़ मौसम'} (${formatLocalizedNumber(weatherAdvisory.temperature_celsius, currentLanguage)}°C) • ${weatherAdvisory.advisory_hi || 'आज सड़क किनारे ठेला व्यापार के लिए उत्कृष्ट मौसम है।'}`
+                  : (currentLanguage === 'ta'
+                      ? `${weatherAdvisory.weather_condition_ta || 'தெளிவான வானம்'} (${formatLocalizedNumber(weatherAdvisory.temperature_celsius, currentLanguage)}°C) • ${weatherAdvisory.advisory_ta || 'இன்று தெருவோர தள்ளுவண்டி வியாபாரத்திற்கு சிறந்த வானிலை.'}`
+                      : (currentLanguage === 'te'
+                          ? `${weatherAdvisory.weather_condition_te || 'స్పష్టమైన ఆకాశం'} (${formatLocalizedNumber(weatherAdvisory.temperature_celsius, currentLanguage)}°C) • ${weatherAdvisory.advisory_te || 'ఈ రోజు తోపుడు బండి వ్యాపారానికి అనుకూలమైన వాతావరణం.'}`
+                          : `${weatherAdvisory.weather_condition || 'Clear Sky'} (${formatLocalizedNumber(weatherAdvisory.temperature_celsius, currentLanguage)}°C) • ${weatherAdvisory.advisory || 'Excellent conditions for pushcart street vending today.'}`)))}
           </span>
         </div>
       )}

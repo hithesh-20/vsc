@@ -14,7 +14,8 @@ import {
   ALL_REGIONAL_LANGUAGES, 
   VENDOR_TRANSLATIONS, 
   formatLocalizedNumber, 
-  formatLocalizedCurrency 
+  formatLocalizedCurrency,
+  getProductLocalizedName 
 } from '../services/i18n';
 import { 
   SUPPORTED_CURRENCIES, 
@@ -209,15 +210,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
     { id: 'p-app-06', name_kn: 'ಶಿಮ್ಲಾ ಸೇಬು', name_hi: 'शिमला सेब', name_ta: 'சிம்லா ஆப்பிள்', name_te: 'సిమ్లా ఆపిల్', name_en: 'Shimla Apple', cost_price: 120, selling_price: 160, current_stock: 18, unit: 'kg', low_stock_threshold: 5 }
   ]);
 
-  const getLocalizedProductName = (p: any, lang: string) => {
-    if (!p) return '';
-    if (lang === 'en') return p.name_en;
-    if (lang === 'kn') return p.name_kn || p.name_en;
-    if (lang === 'hi') return p.name_hi || p.name_kn || p.name_en;
-    if (lang === 'ta') return p.name_ta || p.name_kn || p.name_en;
-    if (lang === 'te') return p.name_te || p.name_kn || p.name_en;
-    return p.name_kn || p.name_en;
-  };
+  const getLocalizedProductName = (p: any, lang: string) => getProductLocalizedName(p, lang);
   const [orders, setOrders] = useState<any[]>([
     {
       id: 'ord-vs-101',
@@ -2575,7 +2568,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                       <div key={idx} className="py-2.5 flex justify-between items-center">
                         <div className="space-y-0.5">
                           <span className="font-black text-slate-900 block flex items-center space-x-1.5">
-                            <span>{language === 'en' ? c.commodity_name_en : (c.commodity_name_kn || c.commodity_name_en)}</span>
+                            <span>{getProductLocalizedName({ name_en: c.commodity_name_en, name_kn: c.commodity_name_kn }, language)}</span>
                             {c.trend === 'UP' && <span className="text-[10px] text-red-600 font-black">↗ (+{c.price_change_pct || 12}%)</span>}
                             {c.trend === 'DOWN' && <span className="text-[10px] text-emerald-600 font-black">↘ ({c.price_change_pct || -8}%)</span>}
                             {c.trend === 'STABLE' && <span className="text-[10px] text-slate-400 font-bold">➡️ Stable</span>}
@@ -2601,8 +2594,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                   <div key={i} className="bg-white p-4 rounded-3xl border border-orange-100 shadow-sm text-slate-900 space-y-2">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-black text-sm text-slate-900">{language === 'en' ? df.product_name_en : (df.product_name_kn || df.product_name_en)}</h4>
-                        <span className="text-xs text-slate-500">{df.product_name_en}</span>
+                        <h4 className="font-black text-sm text-slate-900">{getProductLocalizedName({ name_en: df.product_name_en, name_kn: df.product_name_kn }, language)}</h4>
                       </div>
                       <span className="text-[10px] font-black bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">
                         AI Recommended

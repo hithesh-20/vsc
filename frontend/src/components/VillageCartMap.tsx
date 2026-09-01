@@ -95,8 +95,8 @@ export const VillageCartMap: React.FC<VillageCartMapProps> = ({
 
   // AI Location Prediction State
   const [predictedLocation, setPredictedLocation] = useState<any>({
-    location_name: 'Residential Layout 4th Block (Doorstep Market)',
-    location_name_kn: 'ವಸತಿ ಬಡಾವಣೆ 4ನೇ ಬ್ಲಾಕ್ (ಮನೆಗಳ ಸಾಲು)',
+    location_name: 'Residential Layout 4th Block',
+    location_name_kn: 'ವಸತಿ ಬಡಾವಣೆ 4ನೇ ಬ್ಲಾಕ್',
     latitude: 12.9820,
     longitude: 77.6100,
     distance_km: 0.9,
