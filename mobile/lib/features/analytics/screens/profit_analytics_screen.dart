@@ -1,153 +1,225 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/colors.dart';
-import '../../../core/network/api_client.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../providers/analytics_provider.dart';
 
-class ProfitAnalyticsScreen extends StatefulWidget {
+class ProfitAnalyticsScreen extends ConsumerWidget {
   const ProfitAnalyticsScreen({Key? key}) : super(key: key);
 
   @override
-  State<ProfitAnalyticsScreen> createState() => _ProfitAnalyticsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(localeProvider);
+    final tr = ref.read(localeProvider.notifier);
+    final aState = ref.watch(analyticsProvider);
 
-class _ProfitAnalyticsScreenState extends State<ProfitAnalyticsScreen> {
-  Map<String, dynamic> _analytics = {};
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAnalytics();
-  }
-
-  void _loadAnalytics() async {
-    setState(() => _loading = true);
-    try {
-      final response = await http.get(
-        Uri.parse("${ApiClient.fallbackLocalUrl}/sales/analytics/profit?days=7"),
-        headers: ApiClient.headers,
-      );
-      final data = jsonDecode(response.body)["data"];
-      setState(() {
-        _analytics = data ?? {};
-        _loading = false;
-      });
-    } catch (_) {
-      // Mock Fallback
-      setState(() {
-        _analytics = {
-          "total_revenue": 4820.0,
-          "total_cost": 2980.0,
-          "total_net_profit": 1840.0,
-          "overall_profit_margin_pct": 38.2,
-          "top_profitable_products": [
-            {"product_name": "Tomato (Local Farm)", "total_qty_sold": 45.0, "unit": "kg", "total_revenue": 1350.0, "total_profit": 540.0, "profit_margin_pct": 40.0},
-            {"product_name": "Red Onion", "total_qty_sold": 38.0, "unit": "kg", "total_revenue": 1520.0, "total_profit": 570.0, "profit_margin_pct": 37.5},
-            {"product_name": "Fresh Green Chilli", "total_qty_sold": 12.0, "unit": "kg", "total_revenue": 840.0, "total_profit": 360.0, "profit_margin_pct": 42.8},
-          ]
-        };
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final rev = (_analytics["total_revenue"] as num?)?.toDouble() ?? 0.0;
-    final cost = (_analytics["total_cost"] as num?)?.toDouble() ?? 0.0;
-    final profit = (_analytics["total_net_profit"] as num?)?.toDouble() ?? 0.0;
-    final margin = (_analytics["overall_profit_margin_pct"] as num?)?.toDouble() ?? 0.0;
-    final topProds = (_analytics["top_profitable_products"] as List?) ?? [];
+    final marginPct = aState.todayRevenue > 0
+        ? ((aState.todayNetProfit / aState.todayRevenue) * 100).toStringAsFixed(1)
+        : "0";
 
     return Scaffold(
       backgroundColor: AppColors.bgCanvas,
       appBar: AppBar(
-        title: const Text("ಲಾಭ ಮತ್ತು ವರಮಾನ (Profit Analytics)"),
+        title: Text(
+          tr.tr('analytics_title'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textMain,
         elevation: 0.5,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Hero Profit & Revenue Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.vendorGreen, Color(0xFF15803D)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(color: AppColors.vendorGreen.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 6))
+                ],
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // KPI Cards
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF16A34A), Color(0xFF15803D)]),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("7 ದಿನಗಳ ಒಟ್ಟು ನಿವ್ವಳ ಲಾಭ (7-Day Net Profit)", style: TextStyle(color: Color(0xFFBBF7D0), fontSize: 13)),
-                        const SizedBox(height: 4),
-                        Text("₹${profit.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.black)),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("ಒಟ್ಟು ಮಾರಾಟ: ₹${rev.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontSize: 12)),
-                            Text("ಖರೀದಿ ವೆಚ್ಚ: ₹${cost.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                            Text("ಲಾಭಾಂಶ: $margin%", style: const TextStyle(color: Color(0xFFFEF08A), fontSize: 12, fontWeight: FontWeight.bold)),
-                          ],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        tr.tr('today_profit'),
+                        style: const TextStyle(color: Color(0xFFDCFCE7), fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ],
-                    ),
+                        child: Text(
+                          "+$marginPct% Margin",
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-
-                  // Top Profitable Products
-                  const Text(
-                    "ಹೆಚ್ಚು ಲಾಭ ನೀಡುವ ವಸ್ತುಗಳು (Top Margin Items):",
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                  const SizedBox(height: 6),
+                  Text(
+                    "₹${aState.todayNetProfit.toStringAsFixed(0)}",
+                    style: const TextStyle(fontSize: 34, fontWeight: FontWeight.extrabold, color: Colors.white),
                   ),
                   const SizedBox(height: 12),
-
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: topProds.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = topProds[index];
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(item["product_name"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                Text("ಮಾರಾಟವಾದ ಪ್ರಮಾಣ: ${item['total_qty_sold']} ${item['unit']}", style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text("ಲಾಭ: ₹${(item['total_profit'] as num).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 15, color: AppColors.vendorGreen)),
-                                Text("ಲಾಭಾಂಶ ${item['profit_margin_pct']}%", style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "${tr.tr('today_sales')}: ₹${aState.todayRevenue.toStringAsFixed(0)}",
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Payment Split (Cash vs UPI)
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.money, color: AppColors.primaryOrange, size: 20),
+                            const SizedBox(width: 6),
+                            Text(
+                              tr.tr('cash_collected'),
+                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "₹${aState.cashRevenue.toStringAsFixed(0)}",
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.extrabold, color: AppColors.textMain),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.qr_code_2, color: AppColors.infoBlue, size: 20),
+                            const SizedBox(width: 6),
+                            Text(
+                              tr.tr('upi_collected'),
+                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "₹${aState.upiRevenue.toStringAsFixed(0)}",
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.extrabold, color: AppColors.textMain),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Top Selling Items
+            Text(
+              tr.tr('top_selling_items'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
+            ),
+            const SizedBox(height: 10),
+
+            ...aState.topItems.map((item) {
+              final name = lang == 'kn' ? (item['name_kn'] ?? item['name_en']) : item['name_en'];
+              final qty = item['qty'] ?? 0;
+              final unitKey = 'unit_${item['unit'] ?? 'kg'}';
+              final unitDisplay = tr.tr(unitKey);
+              final rev = (item['rev'] as num?)?.toDouble() ?? 0.0;
+              final profit = (item['profit'] as num?)?.toDouble() ?? 0.0;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textMain),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "$qty $unitDisplay sold",
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          "₹${rev.toStringAsFixed(0)}",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.extrabold, color: AppColors.textMain),
+                        ),
+                        Text(
+                          "+₹${profit.toStringAsFixed(0)} profit",
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.vendorGreen),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,77 +1,61 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/colors.dart';
-import '../../../core/network/api_client.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../providers/udhaar_provider.dart';
+import 'add_udhaar_modal.dart';
 
-class UdhaarScreen extends StatefulWidget {
+class UdhaarScreen extends ConsumerStatefulWidget {
   const UdhaarScreen({Key? key}) : super(key: key);
 
   @override
-  State<UdhaarScreen> createState() => _UdhaarScreenState();
+  ConsumerState<UdhaarScreen> createState() => _UdhaarScreenState();
 }
 
-class _UdhaarScreenState extends State<UdhaarScreen> {
-  List<dynamic> _records = [];
-  double _totalOutstanding = 0.0;
-  bool _loading = true;
+class _UdhaarScreenState extends ConsumerState<UdhaarScreen> {
+  final _searchController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUdhaarData();
+  void _openAddModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const AddUdhaarModal(),
+    );
   }
 
-  void _loadUdhaarData() async {
-    setState(() => _loading = true);
+  void _sendWhatsAppReminder(Map<String, dynamic> customer, double balance) async {
+    final tr = ref.read(localeProvider.notifier);
+    final phone = (customer['phone'] ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '');
+    final msg = tr.tr('reminder_msg_template', params: {'amount': balance.toStringAsFixed(0)});
+    final encodedMsg = Uri.encodeComponent(msg);
+    final url = Uri.parse("https://wa.me/$phone?text=$encodedMsg");
+
     try {
-      final response = await http.get(
-        Uri.parse("${ApiClient.fallbackLocalUrl}/udhaar"),
-        headers: ApiClient.headers,
-      );
-      final data = jsonDecode(response.body)["data"];
-      setState(() {
-        _totalOutstanding = (data["total_outstanding_udhaar"] as num).toDouble();
-        _records = data["records"] ?? [];
-        _loading = false;
-      });
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: AppColors.udhaarIndigo),
+        );
+      }
     } catch (_) {
-      // Mock Fallback
-      setState(() {
-        _totalOutstanding = 900.0;
-        _records = [
-          {"id": "1", "customer_name": "Kumar (Tea Shop)", "customer_phone": "9845011223", "remaining_balance": 300.0, "amount_due": 450.0, "status": "PARTIAL"},
-          {"id": "2", "customer_name": "Sunil Auto Driver", "customer_phone": "9845044556", "remaining_balance": 220.0, "amount_due": 220.0, "status": "UNPAID"},
-          {"id": "3", "customer_name": "Govindraj (Tailor)", "customer_phone": "9845077889", "remaining_balance": 380.0, "amount_due": 680.0, "status": "PARTIAL"},
-        ];
-        _loading = false;
-      });
-    }
-  }
-
-  void _sendWhatsAppReminder(Map<String, dynamic> record) async {
-    final phone = record["customer_phone"] ?? "";
-    final balance = record["remaining_balance"];
-    final text = Uri.encodeComponent("ನಮಸ್ಕಾರ ${record['customer_name']}, ರಮೇಶ್ ತರಕಾರಿ ಅಂಗಡಿಯಿಂದ ನಿಮ್ಮ ಬಾಕಿ ಹಣ ₹$balance ಆಗಿದೆ. ದಯವಿಟ್ಟು ಪಾವತಿಸಿ.");
-    final url = Uri.parse("https://wa.me/91$phone?text=$text");
-
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("ಸಂದೇಶ ಕಳುಹಿಸಲಾಗಿದೆ: ಬಾಕಿ ₹$balance")),
+        SnackBar(content: Text(msg), backgroundColor: AppColors.udhaarIndigo),
       );
     }
   }
 
-  void _showRepayDialog(Map<String, dynamic> record) {
-    final amountController = TextEditingController(text: "${record['remaining_balance']}");
+  void _showRecordPaymentDialog(Map<String, dynamic> customer, double balance) {
+    final tr = ref.read(localeProvider.notifier);
+    final amountController = TextEditingController(text: balance.toStringAsFixed(0));
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text("${record['customer_name']} ಸಾಲ ಮರುಪಾವತಿ"),
+        shape: RoundedRectangleRBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("${tr.tr('record_payment')}: ${customer['customer_name']}"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -79,29 +63,37 @@ class _UdhaarScreenState extends State<UdhaarScreen> {
               controller: amountController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: "ಸ್ವೀಕರಿಸಿದ ಮೊತ್ತ (₹)",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                labelText: "${tr.tr('total_amount')} (₹)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("ರದ್ದು")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr.tr('cancel')),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange, foregroundColor: Colors.white),
-            onPressed: () async {
-              final paid = double.tryParse(amountController.text) ?? 0.0;
-              try {
-                await http.post(
-                  Uri.parse("${ApiClient.fallbackLocalUrl}/udhaar/${record['id']}/repay"),
-                  headers: ApiClient.headers,
-                  body: jsonEncode({"amount_paid": paid, "payment_mode": "CASH"}),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.vendorGreen,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleRBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              final paid = double.tryParse(amountController.text.trim()) ?? 0.0;
+              if (paid > 0) {
+                ref.read(udhaarProvider.notifier).recordPayment(customer['id'], paid);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(tr.tr('payment_recorded_success')),
+                    backgroundColor: AppColors.vendorGreen,
+                  ),
                 );
-              } catch (_) {}
+              }
               Navigator.pop(ctx);
-              _loadUdhaarData();
             },
-            child: const Text("ಸ್ವೀಕರಿಸಿ (Collect)"),
+            child: Text(tr.tr('confirm')),
           ),
         ],
       ),
@@ -110,76 +102,221 @@ class _UdhaarScreenState extends State<UdhaarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = ref.read(localeProvider.notifier);
+    final udhState = ref.watch(udhaarProvider);
+    final udhNotifier = ref.read(udhaarProvider.notifier);
+
     return Scaffold(
       backgroundColor: AppColors.bgCanvas,
       appBar: AppBar(
-        title: const Text("ಉದಾರ್ ಖಾತೆ ಪುಸ್ತಕ (Udhaar Ledger)"),
+        title: Text(
+          tr.tr('udhaar_title'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textMain,
         elevation: 0.5,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add, color: AppColors.udhaarIndigo, size: 26),
+            onPressed: _openAddModal,
+          ),
+        ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
+        children: [
+          // Total Pending Banner Card
+          Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.udhaarIndigo, Color(0xFF6366F1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.udhaarIndigo.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Total Outstanding Card
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF6366F1)]),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("ಒಟ್ಟು ಬಾಕಿ ಉದಾರ್ (Total Pending Credit)", style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 13)),
-                      const SizedBox(height: 4),
-                      Text("₹${_totalOutstanding.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.black)),
-                    ],
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr.tr('total_pending'),
+                      style: const TextStyle(color: Color(0xFFE0E7FF), fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "₹${udhState.totalOutstanding.toStringAsFixed(0)}",
+                      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.extrabold),
+                    ),
+                  ],
                 ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 28),
+                ),
+              ],
+            ),
+          ),
 
-                // Customer List
-                Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _records.length,
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (q) => udhNotifier.setSearchQuery(q),
+              decoration: InputDecoration(
+                hintText: tr.tr('search_customer'),
+                prefixIcon: const Icon(Icons.search, color: AppColors.udhaarIndigo),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Customers List
+          Expanded(
+            child: udhState.isLoading
+                ? Center(child: Text(tr.tr('loading')))
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    itemCount: udhState.filteredCustomers.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
-                      final r = _records[index];
-                      final remaining = (r["remaining_balance"] as num).toDouble();
+                      final c = udhState.filteredCustomers[index];
+                      final name = c['customer_name'] ?? 'Customer';
+                      final phone = c['phone'] ?? '';
+                      final due = (c['amount_due'] as num?)?.toDouble() ?? 0.0;
+                      final paid = (c['amount_paid'] as num?)?.toDouble() ?? 0.0;
+                      final balance = (due - paid).clamp(0.0, 999999.0);
+                      final dueDate = c['due_date'] ?? '';
+                      final isSettled = balance <= 0;
 
                       return Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(18),
                           border: Border.all(color: Colors.grey.shade200),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2))
+                          ],
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(r["customer_name"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                Text("📞 ${r['customer_phone'] ?? 'No phone'}", style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                                const SizedBox(height: 4),
-                                Text("ಬಾಕಿ: ₹${remaining.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 14, color: AppColors.alertRed)),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textMain,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        phone,
+                                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      "₹${balance.toStringAsFixed(0)}",
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.extrabold,
+                                        color: isSettled ? AppColors.vendorGreen : AppColors.alertRed,
+                                      ),
+                                    ),
+                                    Text(
+                                      isSettled ? tr.tr('synced') : "${tr.tr('due_date')}: $dueDate",
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
+                            if (c['items_summary'] != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                c['items_summary'],
+                                style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontStyle: FontStyle.italic),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            const Divider(height: 1),
+                            const SizedBox(height: 8),
+
+                            // Actions: WhatsApp Reminder + Record Payment
                             Row(
                               children: [
-                                IconButton(
-                                  icon: const Icon(Icons.notifications_active, color: AppColors.vendorGreen),
-                                  onPressed: () => _sendWhatsAppReminder(r),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.vendorGreen,
+                                      side: const BorderSide(color: AppColors.vendorGreen),
+                                      shape: RoundedRectangleRBorder(borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.chat, size: 16),
+                                    label: Text(
+                                      tr.tr('send_whatsapp_reminder'),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: isSettled ? null : () => _sendWhatsAppReminder(c, balance),
+                                  ),
                                 ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrangeLight, foregroundColor: AppColors.primaryOrange, elevation: 0),
-                                  onPressed: () => _showRepayDialog(r),
-                                  child: const Text("ಹಣ ಪಡೆಯಿರಿ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.udhaarIndigo,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleRBorder(borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.check, size: 16),
+                                    label: Text(
+                                      tr.tr('record_payment'),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: isSettled ? null : () => _showRecordPaymentDialog(c, balance),
+                                  ),
                                 ),
                               ],
                             ),
@@ -188,9 +325,9 @@ class _UdhaarScreenState extends State<UdhaarScreen> {
                       );
                     },
                   ),
-                ),
-              ],
-            ),
+          ),
+        ],
+      ),
     );
   }
 }

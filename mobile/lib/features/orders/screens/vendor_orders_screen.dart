@@ -1,92 +1,72 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/colors.dart';
-import '../../../core/network/api_client.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../providers/orders_provider.dart';
 
-class VendorOrdersScreen extends StatefulWidget {
+class VendorOrdersScreen extends ConsumerWidget {
   const VendorOrdersScreen({Key? key}) : super(key: key);
 
-  @override
-  State<VendorOrdersScreen> createState() => _VendorOrdersScreenState();
-}
-
-class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
-  List<dynamic> _orders = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadOrders();
-  }
-
-  void _loadOrders() async {
-    setState(() => _loading = true);
-    try {
-      final response = await http.get(
-        Uri.parse("${ApiClient.fallbackLocalUrl}/orders/vendor"),
-        headers: ApiClient.headers,
-      );
-      final data = jsonDecode(response.body)["data"];
-      setState(() {
-        _orders = data ?? [];
-        _loading = false;
-      });
-    } catch (_) {
-      // Mock Fallback
-      setState(() {
-        _orders = [
-          {
-            "id": "1",
-            "order_number": "ORD-0822-A101",
-            "total_amount": 170.0,
-            "status": "PENDING",
-            "delivery_address": "#42, 3rd Cross, Gandhi Nagar",
-            "items": [
-              {"product_name_snapshot": "Tomato", "quantity": 3.0, "unit": "kg", "unit_price": 30.0},
-              {"product_name_snapshot": "Onion", "quantity": 2.0, "unit": "kg", "unit_price": 40.0},
-            ]
-          }
-        ];
-        _loading = false;
-      });
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'PENDING':
+        return AppColors.alertRed;
+      case 'CONFIRMED':
+        return Colors.blue.shade700;
+      case 'PREPARING':
+        return Colors.amber.shade800;
+      case 'OUT_FOR_DELIVERY':
+        return AppColors.voicePurple;
+      case 'DELIVERED':
+        return AppColors.vendorGreen;
+      default:
+        return AppColors.textMuted;
     }
   }
 
-  void _updateStatus(String orderId, String nextStatus) async {
-    try {
-      await http.put(
-        Uri.parse("${ApiClient.fallbackLocalUrl}/orders/$orderId/status"),
-        headers: ApiClient.headers,
-        body: jsonEncode({"status": nextStatus}),
-      );
-      _loadOrders();
-    } catch (_) {}
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.read(localeProvider.notifier);
+    final ordState = ref.watch(ordersProvider);
+    final ordNotifier = ref.read(ordersProvider.notifier);
+
     return Scaffold(
       backgroundColor: AppColors.bgCanvas,
       appBar: AppBar(
-        title: const Text("ಗ್ರಾಹಕರ ಆರ್ಡರ್‌ಗಳು (Customer Orders)"),
+        title: Text(
+          tr.tr('orders_title'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textMain,
         elevation: 0.5,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _orders.isEmpty
-              ? const Center(child: Text("ಯಾವುದೇ ಹೊಸ ಆರ್ಡರ್‌ಗಳಿಲ್ಲ (No pending orders)"))
+      body: ordState.isLoading
+          ? Center(child: Text(tr.tr('loading')))
+          : ordState.orders.isEmpty
+              ? Center(
+                  child: Text(
+                    tr.tr('no_orders'),
+                    style: const TextStyle(fontSize: 16, color: AppColors.textMuted),
+                  ),
+                )
               : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _orders.length,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: ordState.orders.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final ord = _orders[index];
-                    final status = ord["status"];
-                    final items = (ord["items"] as List?) ?? [];
+                    final order = ordState.orders[index];
+                    final orderId = order['id'] ?? '';
+                    final customerName = order['customer_name'] ?? 'Customer';
+                    final phone = order['phone'] ?? '';
+                    final address = order['delivery_address'] ?? '';
+                    final total = (order['total_amount'] as num?)?.toDouble() ?? 0.0;
+                    final status = order['status'] ?? 'PENDING';
+                    final statusKey = 'status_${status.toLowerCase()}';
+                    final statusLabel = tr.tr(statusKey);
+                    final statusColor = _getStatusColor(status);
+                    final isDelivered = status == 'DELIVERED';
+                    final items = order['items'] as List? ?? [];
 
                     return Container(
                       padding: const EdgeInsets.all(16),
@@ -94,6 +74,9 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2))
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,53 +84,77 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(ord["order_number"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(
+                                orderId,
+                                style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 15, color: AppColors.primaryOrange),
+                              ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: status == "PENDING" ? AppColors.alertRedLight : AppColors.vendorGreenLight,
+                                  color: statusColor.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  status,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                    color: status == "PENDING" ? AppColors.alertRed : AppColors.vendorGreen,
-                                  ),
+                                  statusLabel,
+                                  style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 6),
+                          Text(
+                            customerName,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                          ),
+                          Text(
+                            "$phone • $address",
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(height: 1),
                           const SizedBox(height: 8),
-                          Text("📍 ವಿಳಾಸ: ${ord['delivery_address'] ?? 'Direct Pickup'}", style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                          const Divider(height: 20),
-                          ...items.map((i) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text("${i['product_name_snapshot']} × ${i['quantity']} ${i['unit']}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                    Text("₹${(i['quantity'] * i['unit_price']).toStringAsFixed(0)}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              )),
-                          const Divider(height: 20),
+
+                          // Items List
+                          ...items.map((item) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "• ${item['name']} x ${item['qty']} ${item['unit'] ?? ''}",
+                                    style: const TextStyle(fontSize: 13, color: AppColors.textMain),
+                                  ),
+                                  Text(
+                                    "₹${((item['price'] as num?)?.toDouble() ?? 0.0) * (item['qty'] ?? 1)}",
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+
+                          const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text("ಒಟ್ಟು: ₹${ord['total_amount']}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.extrabold, color: AppColors.primaryOrange)),
-                              if (status == "PENDING")
+                              Text(
+                                "${tr.tr('total_amount')}: ₹${total.toStringAsFixed(0)}",
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.extrabold, color: AppColors.textMain),
+                              ),
+                              if (!isDelivered)
                                 ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.vendorGreen, foregroundColor: Colors.white),
-                                  onPressed: () => _updateStatus(ord["id"], "ACCEPTED"),
-                                  child: const Text("ಸ್ವೀಕರಿಸಿ (Accept)"),
-                                )
-                              else if (status == "ACCEPTED")
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700, foregroundColor: Colors.white),
-                                  onPressed: () => _updateStatus(ord["id"], "COMPLETED"),
-                                  child: const Text("ಪೂರ್ಣಗೊಳಿಸಿ (Complete)"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: statusColor,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleRBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  ),
+                                  onPressed: () => ordNotifier.advanceOrderStatus(orderId),
+                                  child: Text(
+                                    tr.tr('advance_status'),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
                                 ),
                             ],
                           ),

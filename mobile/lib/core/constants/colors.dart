@@ -15,6 +15,15 @@ class AppColors {
   static const Color alertRed = Color(0xFFDC2626);
   static const Color alertRedLight = Color(0xFFFEE2E2);
 
+  static const Color infoBlue = Color(0xFF0284C7);
+  static const Color infoBlueLight = Color(0xFFE0F2FE);
+
+  static const Color udhaarIndigo = Color(0xFF4F46E5);
+  static const Color udhaarIndigoLight = Color(0xFFEEF2FF);
+
+  static const Color mandiGold = Color(0xFFD97706);
+  static const Color mandiGoldLight = Color(0xFFFEF3C7);
+
   static const Color bgCanvas = Color(0xFFF8FAFC);
   static const Color cardSurface = Colors.white;
   static const Color textMain = Color(0xFF0F172A);

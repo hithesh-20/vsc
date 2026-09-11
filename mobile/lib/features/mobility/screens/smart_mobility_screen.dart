@@ -1,195 +1,230 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/colors.dart';
-import '../../../core/network/api_client.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../providers/mobility_provider.dart';
 
-class SmartMobilityScreen extends StatefulWidget {
+class SmartMobilityScreen extends ConsumerWidget {
   const SmartMobilityScreen({Key? key}) : super(key: key);
 
   @override
-  State<SmartMobilityScreen> createState() => _SmartMobilityScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(localeProvider);
+    final tr = ref.read(localeProvider.notifier);
+    final mobState = ref.watch(mobilityProvider);
+    final mobNotifier = ref.read(mobilityProvider.notifier);
 
-class _SmartMobilityScreenState extends State<SmartMobilityScreen> {
-  List<dynamic> _recommendations = [];
-  String? _clusterWarning;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRecommendations();
-  }
-
-  void _loadRecommendations() async {
-    setState(() => _loading = true);
-    try {
-      final response = await http.get(
-        Uri.parse("${ApiClient.fallbackLocalUrl}/mobility/recommendations"),
-        headers: ApiClient.headers,
-      );
-      final data = jsonDecode(response.body)["data"];
-      setState(() {
-        _recommendations = data["recommendations"] ?? [];
-        _clusterWarning = data["cluster_warning"];
-        _loading = false;
-      });
-    } catch (_) {
-      // Mock Fallback
-      setState(() {
-        _recommendations = [
-          {
-            "location_name": "Gandhi Circle Market",
-            "location_name_kn": "ಗಾಂಧಿ ಸರ್ಕಲ್ ಮಾರುಕಟ್ಟೆ",
-            "distance_km": 1.2,
-            "score": 92.5,
-            "demand_level": "High",
-            "active_competitors_count": 0,
-            "recommendation_reason_kn": "ಇಲ್ಲಿ ತರಕಾರಿಗಳಿಗೆ ಹೆಚ್ಚಿನ ಬೇಡಿಕೆ ಇದ್ದು ಯಾವುದೇ ಸ್ಪರ್ಧಾತ್ಮಕ ವ್ಯಾಪಾರಿಗಳಿಲ್ಲ."
-          },
-          {
-            "location_name": "Central Bus Stand",
-            "location_name_kn": "ಕೇಂದ್ರ ಬಸ್ ನಿಲ್ದಾಣ ರಸ್ತೆ",
-            "distance_km": 2.8,
-            "score": 84.0,
-            "demand_level": "High",
-            "active_competitors_count": 1,
-            "recommendation_reason_kn": "ಗ್ರಾಹಕರ ಓಡಾಟ ಚೆನ್ನಾಗಿದೆ, ಆದರೆ 1 ಸ್ಪರ್ಧಿ ವ್ಯಾಪಾರಿ ಇದ್ದಾರೆ."
-          },
-        ];
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgCanvas,
       appBar: AppBar(
-        title: const Text("ಸ್ಮಾರ್ಟ್ ಸ್ಥಳ ಮತ್ತು ಮಾರ್ಗ (Mobility)"),
+        title: Text(
+          tr.tr('mobility_title'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textMain,
         elevation: 0.5,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Current Location Pin Card
+            Container(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6)],
+              ),
+              child: Row(
                 children: [
-                  // Anti-Clustering Warning Banner
-                  if (_clusterWarning != null)
-                    Container(
-                      margin: const EdgeInsets.bottom(16),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.alertRedLight,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.alertRed.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning_amber_rounded, color: AppColors.alertRed, size: 24),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _clusterWarning!,
-                              style: const TextStyle(color: AppColors.alertRed, fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade50,
+                      borderRadius: BorderRadius.circular(14),
                     ),
-
-                  const Text(
-                    "ಶಿಫಾರಸು ಮಾಡಿದ ವ್ಯಾಪಾರ ಸ್ಥಳಗಳು (Recommended Spots):",
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                    child: Icon(Icons.my_location, color: Colors.teal.shade700, size: 24),
                   ),
-                  const SizedBox(height: 12),
-
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _recommendations.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final spot = _recommendations[index];
-                      final score = (spot["score"] as num).toDouble();
-                      final isTop = index == 0;
-
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isTop ? AppColors.vendorGreen : Colors.grey.shade200, width: isTop ? 2 : 1),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr.tr('current_location'),
+                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: isTop ? AppColors.vendorGreenLight : Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        "ಸ್ಕೋರ್: ${score.toStringAsFixed(1)}/100",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          color: isTop ? AppColors.vendorGreen : AppColors.textMain,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      "📍 ${spot['distance_km']} km",
-                                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                                    ),
-                                  ],
-                                ),
-                                if (isTop)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.vendorGreen,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Text("ಅತ್ಯುತ್ತಮ ಆಯ್ಕೆ", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              spot["location_name_kn"] ?? spot["location_name"],
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
-                            ),
-                            Text(
-                              spot["location_name"],
-                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              "💡 ${spot['recommendation_reason_kn']}",
-                              style: const TextStyle(fontSize: 13, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                        const SizedBox(height: 2),
+                        Text(
+                          mobState.currentAddress,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 14),
+
+            // Saturation Warning Alert (if nearby competitors)
+            if (mobState.hasSaturationAlert) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.alertRedLight,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.alertRed.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: AppColors.alertRed, size: 26),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        tr.tr('anti_clustering_alert'),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.alertRed),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // Green Lane Recommendation Box
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.vendorGreenLight.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.vendorGreen.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.alt_route, color: AppColors.vendorGreen, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Green Lane Recommendation",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    lang == 'kn' ? mobState.recommendedGreenLaneKn : mobState.recommendedGreenLaneEn,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                  ),
+                  const SizedBox(height: 12),
+                  if (mobState.hasSaturationAlert)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.vendorGreen,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 44),
+                        shape: RoundedRectangleRBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: const Icon(Icons.navigation, size: 18),
+                      label: Text(
+                        tr.tr('navigate_lane'),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () {
+                        mobNotifier.navigateToGreenLane();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("✓ Navigating to 4th Cross, Vidyanagar"),
+                            backgroundColor: AppColors.vendorGreen,
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Nearby Competitor Push-Carts
+            Text(
+              tr.tr('nearby_vendors_count'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
+            ),
+            const SizedBox(height: 10),
+
+            if (mobState.nearbyCompetitors.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: AppColors.vendorGreen),
+                    SizedBox(width: 12),
+                    Text(
+                      "No direct competitors within 200m. Maximum profit zone!",
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.vendorGreen),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...mobState.nearbyCompetitors.map((c) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.alertRedLight,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.shopping_bag, color: AppColors.alertRed, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            Text(c.category, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.alertRedLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          "${c.distanceMeters.toStringAsFixed(0)}m away",
+                          style: const TextStyle(color: AppColors.alertRed, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+          ],
+        ),
+      ),
     );
   }
 }

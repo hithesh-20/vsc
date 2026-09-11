@@ -1,42 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/colors.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/sync/offline_sync_manager.dart';
-import '../../voice/screens/kannada_voice_modal.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/screens/login_screen.dart';
+import '../providers/dashboard_provider.dart';
 import '../../pos/screens/quick_pos_screen.dart';
 import '../../inventory/screens/inventory_screen.dart';
 import '../../udhaar/screens/udhaar_screen.dart';
-import '../../mobility/screens/smart_mobility_screen.dart';
-import '../../analytics/screens/profit_analytics_screen.dart';
 import '../../orders/screens/vendor_orders_screen.dart';
+import '../../mobility/screens/smart_mobility_screen.dart';
+import '../../mandi/screens/mandi_rates_screen.dart';
+import '../../weather/screens/weather_advisory_screen.dart';
+import '../../megaphone/screens/street_megaphone_modal.dart';
+import '../../analytics/screens/profit_analytics_screen.dart';
+import '../../voice/screens/voice_assistant_modal.dart';
+import 'customer_home_screen.dart';
 
-class VendorHomeScreen extends StatefulWidget {
+class VendorHomeScreen extends ConsumerStatefulWidget {
   const VendorHomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<VendorHomeScreen> createState() => _VendorHomeScreenState();
+  ConsumerState<VendorHomeScreen> createState() => _VendorHomeScreenState();
 }
 
-class _VendorHomeScreenState extends State<VendorHomeScreen> {
-  Map<String, dynamic> _summary = {};
-  bool _loading = true;
-  int _pendingSyncCount = 0;
-
+class _VendorHomeScreenState extends ConsumerState<VendorHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
-  }
-
-  void _loadDashboardData() async {
-    setState(() => _loading = true);
-    final res = await ApiClient.getDashboardSummary();
-    final pendingCount = await OfflineSyncManager.getPendingSyncCount();
-
-    setState(() {
-      _loading = false;
-      _summary = res["data"] ?? {};
-      _pendingSyncCount = pendingCount;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(dashboardProvider.notifier).loadDashboard();
     });
   }
 
@@ -45,30 +38,40 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => KannadaVoiceModal(onDataChanged: _loadDashboardData),
+      builder: (_) => VoiceAssistantModal(
+        onDataChanged: () => ref.read(dashboardProvider.notifier).loadDashboard(),
+      ),
+    );
+  }
+
+  void _openMegaphone() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const StreetMegaphoneModal(),
     );
   }
 
   void _triggerSync() async {
-    final success = await OfflineSyncManager.syncPendingMutations();
-    if (success) {
+    final tr = ref.read(localeProvider.notifier);
+    final ok = await ref.read(dashboardProvider.notifier).syncPending();
+    if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✓ ಎಲ್ಲಾ ಆಫ್‌ಲೈನ್ ಬಿಲ್‌ಗಳು ಸರ್ವರ್‌ಗೆ ಸಿಂಕ್ ಆಗಿವೆ (Synced Successfully)"),
+        SnackBar(
+          content: Text(tr.tr('sync_success_msg')),
           backgroundColor: AppColors.vendorGreen,
         ),
       );
-      _loadDashboardData();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final todaySales = _summary["today_sales_revenue"] ?? 0.0;
-    final todayProfit = _summary["today_net_profit"] ?? 0.0;
-    final pendingOrders = _summary["pending_orders_count"] ?? 0;
-    final totalUdhaar = _summary["total_udhaar_outstanding"] ?? 0.0;
-    final weatherSummary = _summary["weather_summary"] ?? "Clear (29°C)";
+    final lang = ref.watch(localeProvider);
+    final tr = ref.read(localeProvider.notifier);
+    final authState = ref.watch(authProvider);
+    final dashState = ref.watch(dashboardProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bgCanvas,
@@ -83,42 +86,80 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                 color: AppColors.primaryOrange,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text("ವ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text(
+                lang == 'kn' ? "ವ" : "VS",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
             const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("VendorSaathi", style: TextStyle(color: AppColors.textMain, fontWeight: FontWeight.extrabold, fontSize: 16)),
-                Text("ರಮೇಶ್ ತಾಜಾ ತರಕಾರಿಗಳು (Ramesh Veg)", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr.tr('app_name'),
+                    style: const TextStyle(color: AppColors.textMain, fontWeight: FontWeight.extrabold, fontSize: 16),
+                  ),
+                  Text(
+                    authState.businessName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           // Offline Sync Badge
-          if (_pendingSyncCount > 0)
+          if (dashState.pendingSyncCount > 0)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 6),
               child: ActionChip(
                 backgroundColor: AppColors.alertRedLight,
-                label: Text("$_pendingSyncCount Sync", style: const TextStyle(color: AppColors.alertRed, fontSize: 11, fontWeight: FontWeight.bold)),
+                label: Text(
+                  "${dashState.pendingSyncCount} ${tr.tr('sync_pending')}",
+                  style: const TextStyle(color: AppColors.alertRed, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
                 avatar: const Icon(Icons.sync, size: 14, color: AppColors.alertRed),
                 onPressed: _triggerSync,
               ),
             ),
+
+          // Single-Language Toggle Button (Strict Clean i18n)
+          TextButton.icon(
+            onPressed: () => tr.toggleLocale(),
+            icon: const Icon(Icons.language, color: AppColors.primaryOrange, size: 18),
+            label: Text(
+              lang == 'kn' ? 'English' : 'ಕನ್ನಡ',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryOrange),
+            ),
+          ),
+
+          // Role Switcher to Customer Mode (Priya)
+          IconButton(
+            icon: const Icon(Icons.swap_horiz, color: AppColors.textMain),
+            tooltip: tr.tr('switch_role'),
+            onPressed: () {
+              ref.read(authProvider.notifier).switchAccount('PRIYA');
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => _loadDashboardData(),
+        onRefresh: () async => ref.read(dashboardProvider.notifier).loadDashboard(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              
-              // 1. HERO KANNADA VOICE PROMPT BUTTON (High Prominence)
+              // 1. HERO VOICE PROMPT PROMINENT BUTTON
               GestureDetector(
                 onTap: _openVoiceModal,
                 child: Container(
@@ -149,18 +190,18 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                         child: const Icon(Icons.mic, color: Colors.white, size: 30),
                       ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "🎙️ ಮಾತನಾಡಿ (Talk to Assistant)",
-                              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.extrabold),
+                              tr.tr('voice_banner_title'),
+                              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.extrabold),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
-                              "\"ಇಂದು ಎಷ್ಟು ಮಾರಾಟವಾಯಿತು?\"",
-                              style: TextStyle(color: Color(0xFFDDD6FE), fontSize: 13, fontStyle: FontStyle.italic),
+                              tr.tr('voice_banner_sub'),
+                              style: const TextStyle(color: Color(0xFFDDD6FE), fontSize: 13, fontStyle: FontStyle.italic),
                             ),
                           ],
                         ),
@@ -172,7 +213,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 2. TODAY'S SALES & PROFIT SCORECARD
+              // 2. TODAY'S SALES & NET PROFIT SCORECARD
               Row(
                 children: [
                   Expanded(
@@ -187,9 +228,15 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("ಇಂದಿನ ಮಾರಾಟ (Sales)", style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                          Text(
+                            tr.tr('today_sales'),
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                          ),
                           const SizedBox(height: 4),
-                          Text("₹${todaySales.toStringAsFixed(0)}", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.extrabold, color: AppColors.primaryOrange)),
+                          Text(
+                            "₹${dashState.todaySalesRevenue.toStringAsFixed(0)}",
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.extrabold, color: AppColors.primaryOrange),
+                          ),
                         ],
                       ),
                     ),
@@ -207,9 +254,15 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("ನಿವ್ವಳ ಲಾಭ (Net Profit)", style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                          Text(
+                            tr.tr('today_profit'),
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                          ),
                           const SizedBox(height: 4),
-                          Text("₹${todayProfit.toStringAsFixed(0)}", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.extrabold, color: AppColors.vendorGreen)),
+                          Text(
+                            "₹${dashState.todayNetProfit.toStringAsFixed(0)}",
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.extrabold, color: AppColors.vendorGreen),
+                          ),
                         ],
                       ),
                     ),
@@ -218,33 +271,40 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 3. WEATHER & SMART AI BANNER
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryOrangeLight.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.primaryOrange.withOpacity(0.3)),
+              // 3. WEATHER & DEMAND BANNER (Clickable)
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WeatherAdvisoryScreen()),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.wb_sunny, color: AppColors.primaryOrange, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        "ಹವಾಮಾನ: $weatherSummary • ಮಾರುಕಟ್ಟೆ ಬೇಡಿಕೆ ಉತ್ತಮವಾಗಿದೆ.",
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF9A3412)),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryOrangeLight.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.primaryOrange.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.wb_sunny, color: AppColors.primaryOrange, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "${tr.tr('weather_banner_prefix')} ${dashState.weatherSummary}",
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF9A3412)),
+                        ),
                       ),
-                    ),
-                  ],
+                      const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.primaryOrange),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
 
-              // 4. LARGE-TOUCH VENDOR ACTION MODULES GRID (6 Key Buttons)
-              const Text(
-                "ವ್ಯಾಪಾರ ಸೇವೆಗಳು (Quick Services)",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain),
+              // 4. LARGE-TOUCH VENDOR SERVICES GRID (8 Core Modules)
+              Text(
+                tr.tr('quick_services'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
               ),
               const SizedBox(height: 12),
 
@@ -257,52 +317,65 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                 childAspectRatio: 1.25,
                 children: [
                   _buildModuleCard(
-                    titleKn: "ತ್ವರಿತ ಮಾರಾಟ",
-                    titleEn: "POS Billing",
+                    title: tr.tr('mod_pos_title'),
+                    subtitle: tr.tr('mod_pos_sub'),
                     icon: Icons.point_of_sale,
                     color: AppColors.primaryOrange,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickPosScreen())),
                   ),
                   _buildModuleCard(
-                    titleKn: "ಆರ್ಡರ್‌ಗಳು ($pendingOrders)",
-                    titleEn: "Customer Orders",
+                    title: tr.tr('mod_orders_title'),
+                    subtitle: tr.tr('mod_orders_sub'),
                     icon: Icons.shopping_cart,
-                    color: Colors.blue.shade700,
-                    badge: pendingOrders > 0 ? "$pendingOrders" : null,
+                    color: AppColors.infoBlue,
+                    badge: dashState.pendingOrdersCount > 0 ? "${dashState.pendingOrdersCount}" : null,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VendorOrdersScreen())),
                   ),
                   _buildModuleCard(
-                    titleKn: "ದಾಸ್ತಾನು ಸರಕು",
-                    titleEn: "Inventory Stock",
+                    title: tr.tr('mod_inventory_title'),
+                    subtitle: tr.tr('mod_inventory_sub'),
                     icon: Icons.inventory_2,
                     color: AppColors.vendorGreen,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen())),
                   ),
                   _buildModuleCard(
-                    titleKn: "ಉದಾರ್ ಖಾತೆ",
-                    titleEn: "Udhaar (₹${totalUdhaar.toStringAsFixed(0)})",
+                    title: tr.tr('mod_udhaar_title'),
+                    subtitle: "₹${dashState.totalUdhaarOutstanding.toStringAsFixed(0)}",
                     icon: Icons.menu_book,
-                    color: Colors.indigo.shade600,
+                    color: AppColors.udhaarIndigo,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UdhaarScreen())),
                   ),
                   _buildModuleCard(
-                    titleKn: "ಸ್ಮಾರ್ಟ್ ಸ್ಥಳ",
-                    titleEn: "Smart Mobility Map",
+                    title: tr.tr('mod_mandi_title'),
+                    subtitle: tr.tr('mod_mandi_sub'),
+                    icon: Icons.account_balance,
+                    color: AppColors.mandiGold,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MandiRatesScreen())),
+                  ),
+                  _buildModuleCard(
+                    title: tr.tr('mod_mobility_title'),
+                    subtitle: tr.tr('mod_mobility_sub'),
                     icon: Icons.location_on,
                     color: Colors.teal.shade700,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SmartMobilityScreen())),
                   ),
                   _buildModuleCard(
-                    titleKn: "ಲಾಭ ವಿಶ್ಲೇಷಣೆ",
-                    titleEn: "Profit Analytics",
+                    title: tr.tr('mod_megaphone_title'),
+                    subtitle: tr.tr('mod_megaphone_sub'),
+                    icon: Icons.campaign,
+                    color: Colors.deepPurple,
+                    onTap: _openMegaphone,
+                  ),
+                  _buildModuleCard(
+                    title: tr.tr('mod_analytics_title'),
+                    subtitle: tr.tr('mod_analytics_sub'),
                     icon: Icons.insights,
-                    color: Colors.amber.shade800,
+                    color: Colors.brown.shade700,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfitAnalyticsScreen())),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -311,8 +384,8 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
   }
 
   Widget _buildModuleCard({
-    required String titleKn,
-    required String titleEn,
+    required String title,
+    required String subtitle,
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
@@ -356,15 +429,29 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                       color: AppColors.alertRed,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(badge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   ),
               ],
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titleKn, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain)),
-                Text(titleEn, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                ),
               ],
             ),
           ],
