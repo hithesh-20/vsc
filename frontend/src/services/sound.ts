@@ -13,6 +13,26 @@ class SoundEffects {
     return this.ctx;
   }
 
+  // Subtle UI tap feedback (buttons, role switcher, tab changes)
+  playTap() {
+    try {
+      const ctx = this.getContext();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch (_) {}
+  }
+
   // Cash register chime on POS sale
   playCashRegister() {
     try {

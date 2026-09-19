@@ -14,8 +14,8 @@ interface EmergencySosModalProps {
 export const EmergencySosModal: React.FC<EmergencySosModalProps> = ({
   isOpen,
   onClose,
-  vendorLocation,
-  vendorUser,
+  vendorLocation = [12.9716, 77.5946] as [number, number],
+  vendorUser = {} as any,
   language = 'kn'
 }) => {
   const t = VENDOR_TRANSLATIONS[language] || VENDOR_TRANSLATIONS.en || VENDOR_TRANSLATIONS.kn;
@@ -35,7 +35,7 @@ export const EmergencySosModal: React.FC<EmergencySosModalProps> = ({
   const mapsUrl = `https://www.google.com/maps?q=${vendorLocation[0]},${vendorLocation[1]}`;
 
   const copyEmergencyLink = () => {
-    navigator.clipboard.writeText(`🚨 EMERGENCY VENDOR ALERT!\nVendor: ${vendorUser.business_name} (${vendorUser.phone})\nLocation: ${mapsUrl}`);
+    navigator.clipboard.writeText(`🚨 EMERGENCY VENDOR ALERT!\nVendor: ${vendorUser?.business_name || 'Vendor Cart'} (${vendorUser?.phone || 'N/A'})\nLocation: ${mapsUrl}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -70,7 +70,7 @@ export const EmergencySosModal: React.FC<EmergencySosModalProps> = ({
         <div className="bg-slate-950 p-3.5 rounded-2xl border border-rose-200 space-y-2">
           <div className="flex justify-between items-start">
             <div>
-              <h4 className="font-black text-white text-sm">{vendorUser.business_name}</h4>
+              <h4 className="font-black text-white text-sm">{vendorUser?.business_name || 'Vendor Cart'}</h4>
               <p className="text-xs text-slate-500">Cart ID: {vendorUser.apmc_license || 'VS-STREET-2026'}</p>
             </div>
             <span className="px-2 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-black rounded-full">

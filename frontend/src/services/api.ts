@@ -12,7 +12,7 @@ const getApiBase = (): string => {
   return 'http://localhost:8000/api/v1';
 };
 
-const API_BASE = getApiBase();
+export const API_BASE = getApiBase();
 
 export const api = {
   // Real Reverse Geocoding using OpenStreetMap Nominatim with global language headers

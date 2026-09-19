@@ -76,10 +76,10 @@ function MapViewController({ center }: { center: [number, number] }) {
 
 export const VillageCartMap: React.FC<VillageCartMapProps> = ({
   vendors,
-  userLocation,
-  locationAddress,
-  onSelectVendor,
-  onRefreshGps,
+  userLocation = [12.9716, 77.5946] as [number, number],
+  locationAddress = '',
+  onSelectVendor = () => {},
+  onRefreshGps = () => {},
   onLocationChange,
   language = 'kn'
 }) => {

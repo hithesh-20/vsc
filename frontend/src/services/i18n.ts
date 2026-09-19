@@ -1539,3 +1539,105 @@ export const VENDOR_TRANSLATIONS: { [code: string]: any } = {
 };
 
 export const UI_TRANSLATIONS = VENDOR_TRANSLATIONS;
+
+// ============================================================================
+// INDIAN LANGUAGES — full scheduled-language pack for the B2C app
+// 22 scheduled languages + English + Bhojpuri. Each entry: native name,
+// English name, BCP-47 tag, and the app onboarding/UI strings.
+// ============================================================================
+
+export interface IndianLanguage {
+  code: string;
+  native: string;
+  english: string;
+  tag: string;
+  greeting: string;
+}
+
+export const INDIAN_LANGUAGES: IndianLanguage[] = [
+  { code: 'kn',  native: 'ಕನ್ನಡ',    english: 'Kannada',   tag: 'kn-IN', greeting: 'ನಮಸ್ಕಾರ' },
+  { code: 'en',  native: 'English',   english: 'English',   tag: 'en-IN', greeting: 'Welcome' },
+  { code: 'hi',  native: 'हिन्दी',     english: 'Hindi',     tag: 'hi-IN', greeting: 'नमस्ते' },
+  { code: 'te',  native: 'తెలుగు',    english: 'Telugu',    tag: 'te-IN', greeting: 'నమస్కారం' },
+  { code: 'ta',  native: 'தமிழ்',     english: 'Tamil',     tag: 'ta-IN', greeting: 'வணக்கம்' },
+  { code: 'mr',  native: 'मराठी',     english: 'Marathi',   tag: 'mr-IN', greeting: 'नमस्कार' },
+  { code: 'bn',  native: 'বাংলা',     english: 'Bengali',   tag: 'bn-IN', greeting: 'নমস্কার' },
+  { code: 'gu',  native: 'ગુજરાતી',   english: 'Gujarati',  tag: 'gu-IN', greeting: 'નમસ્તે' },
+  { code: 'pa',  native: 'ਪੰਜਾਬੀ',    english: 'Punjabi',   tag: 'pa-IN', greeting: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ' },
+  { code: 'ml',  native: 'മലയാളം',   english: 'Malayalam', tag: 'ml-IN', greeting: 'നമസ്കാരം' },
+  { code: 'or',  native: 'ଓଡ଼ିଆ',      english: 'Odia',      tag: 'or-IN', greeting: 'ନମସ୍କାର' },
+  { code: 'as',  native: 'অসমীয়া',    english: 'Assamese',  tag: 'as-IN', greeting: 'নমস্কাৰ' },
+  { code: 'ur',  native: 'اردو',      english: 'Urdu',      tag: 'ur-IN', greeting: 'سلام' },
+  { code: 'sd',  native: 'सिंधी',     english: 'Sindhi',    tag: 'sd-IN', greeting: 'سلام' },
+  { code: 'ne',  native: 'नेपाली',    english: 'Nepali',    tag: 'ne-IN', greeting: 'नमस्ते' },
+  { code: 'mai', native: 'मैथिली',    english: 'Maithili',  tag: 'mai-IN', greeting: 'प्रणाम' },
+  { code: 'sa',  native: 'संस्कृतम्',  english: 'Sanskrit',  tag: 'sa-IN', greeting: 'नमस्ते' },
+  { code: 'ks',  native: 'کٲشُر',     english: 'Kashmiri',  tag: 'ks-IN', greeting: 'نمبروک' },
+  { code: 'doi', native: 'डोगरी',     english: 'Dogri',     tag: 'doi-IN', greeting: 'नमस्ते' },
+  { code: 'kok', native: 'कोंकणी',    english: 'Konkani',   tag: 'kok-IN', greeting: 'नमस्कार' },
+  { code: 'mni', native: 'ꯃꯤꯇꯩꯂꯣꯟ',   english: 'Meitei (Manipuri)', tag: 'mni-IN', greeting: 'ꯆꯥꯎꯕ' },
+  { code: 'bho', native: 'भोजपुरी',   english: 'Bhojpuri',  tag: 'bho-IN', greeting: 'प्रणाम' },
+];
+
+// Fallback UI strings: English base. Non-covered languages gracefully
+// fall back to English while keeping their native names on the picker.
+export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
+  en: {
+    chooseLanguage: 'Choose Your Language', chooseLanguageSub: 'Shop from street vendors in your language',
+    continue: 'Continue', enterPhone: 'Enter your mobile number', phoneSub: 'We will send a one-time code to verify',
+    getOtp: 'Send OTP', verifyOtp: 'Verify OTP', otpSub: 'Enter the 6-digit code sent to', resendIn: 'Resend in',
+    resend: 'Resend OTP', wrongOtp: 'Incorrect OTP. Please try again.', verifyAndContinue: 'Verify & Continue',
+    yourName: 'Your full name', completeSignup: 'Create Account', welcome: 'Welcome', home: 'Home', orders: 'Orders',
+    udhaar: 'Udhaar', profile: 'Profile', nearbyVendors: 'Street vendors near you', viewStore: 'View Store',
+    addToCart: 'Add', cart: 'Cart', yourCart: 'Your Cart', emptyCart: 'Your cart is empty',
+    emptyCartSub: 'Add fresh produce from nearby carts', total: 'Total', placeOrder: 'Place Order',
+    paymentMethod: 'Payment Method', upi: 'UPI / QR', cash: 'Cash on Delivery', udhaarPay: 'Udhaar (Pay Later)',
+    deliveryAddress: 'Delivery Address', myOrders: 'My Orders', noOrders: 'No orders yet',
+    noOrdersSub: 'Your street shopping history will appear here', payment: 'Payment', paid: 'Paid',
+    pending: 'Pending', payNow: 'Pay Now', myUdhaar: 'My Udhaar Accounts', noUdhaar: 'No Udhaar dues 🎉',
+    noUdhaarSub: 'Credit purchases from vendors will show here', repay: 'Repay Now', owed: 'Owed',
+    settled: 'Settled', logout: 'Logout', language: 'Language', otpResent: 'A new OTP has been sent',
+    orderPlaced: 'Order placed!', orderPlacedSub: 'Track it in the Orders tab', items: 'items',
+    demoOtp: 'Demo OTP', thanks: 'Thank you!', searchVendors: 'Search vendors & products', allVendors: 'All vendors',
+  },
+  kn: {
+    chooseLanguage: 'ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ', chooseLanguageSub: 'ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಬೀದಿ ವ್ಯಾಪಾರಿಗಳಿಂದ ಖರೀದಿಸಿ',
+    continue: 'ಮುಂದುವರಿಸಿ', enterPhone: 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ', phoneSub: 'ದೃಢೀಕರಣಕ್ಕಾಗಿ ನಾವು ಒಂದು ಕೋಡ್ ಕಳುಹಿಸುತ್ತೇವೆ',
+    getOtp: 'OTP ಕಳುಹಿಸಿ', verifyOtp: 'OTP ದೃಢೀಕರಿಸಿ', otpSub: 'ಕಳುಹಿಸಿದ 6-ಅಂಕಿಯ ಕೋಡ್ ನಮೂದಿಸಿ', resendIn: 'ಮರುಕಳುಹಿಸಿ',
+    resend: 'OTP ಮರುಕಳುಹಿಸಿ', wrongOtp: 'ತಪ್ಪು OTP. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', verifyAndContinue: 'ದೃಢೀಕರಿಸಿ & ಮುಂದುವರಿಸಿ',
+    yourName: 'ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು', completeSignup: 'ಖಾತೆ ತೆರೆಯಿರಿ', welcome: 'ಸ್ವಾಗತ', home: 'ಮುಖಪುಟ', orders: 'ಆರ್ಡರ್‌ಗಳು',
+    udhaar: 'ಉದಾರ್', profile: 'ಪ್ರೊಫೈಲ್', nearbyVendors: 'ಹತ್ತಿರದ ಬೀದಿ ವ್ಯಾಪಾರಿಗಳು', viewStore: 'ಅಂಗಡಿ ನೋಡಿ',
+    addToCart: 'ಸೇರಿಸಿ', cart: 'ಬುಟ್ಟಿ', yourCart: 'ನಿಮ್ಮ ಬುಟ್ಟಿ', emptyCart: 'ಬುಟ್ಟಿ ಖಾಲಿಯಾಗಿದೆ',
+    emptyCartSub: 'ಹತ್ತಿರದ ಗಾಡಿಗಳಿಂದ ತಾಜಾ ತರಕಾರಿ ಸೇರಿಸಿ', total: 'ಒಟ್ಟು', placeOrder: 'ಆರ್ಡರ್ ಮಾಡಿ',
+    paymentMethod: 'ಪಾವತಿ ವಿಧಾನ', upi: 'UPI / QR', cash: 'ಮಾರಾಟದ ಸಮಯದಲ್ಲಿ ನಗದು', udhaarPay: 'ಉದಾರ್ (ನಂತರ ಪಾವತಿ)',
+    deliveryAddress: 'ವಿತರಣಾ ಸ್ಥಳ', myOrders: 'ನನ್ನ ಆರ್ಡರ್‌ಗಳು', noOrders: 'ಇನ್ನೂ ಆರ್ಡರ್ ಇಲ್ಲ',
+    noOrdersSub: 'ನಿಮ್ಮ ಖರೀದಿ ಇತಿಹಾಸ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ', payment: 'ಪಾವತಿ', paid: 'ಪಾವತಿಸಲಾಗಿದೆ',
+    pending: 'ಬಾಕಿ', payNow: 'ಈಗ ಪಾವತಿಸಿ', myUdhaar: 'ನನ್ನ ಉದಾರ್ ಖಾತೆಗಳು', noUdhaar: 'ಯಾವುದೇ ಬಾಕಿ ಇಲ್ಲ 🎉',
+    noUdhaarSub: 'ವ್ಯಾಪಾರಿಗಳಿಂದ ಉದಾರ್ ಖರೀದಿ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ', repay: 'ಈಗ ಪಾವತಿಸಿ', owed: 'ಬಾಕಿ',
+    settled: 'ತೀರ್ಮಾನವಾಗಿದೆ', logout: 'ಲಾಗ್‌ಔಟ್', language: 'ಭಾಷೆ', otpResent: 'ಹೊಸ OTP ಕಳುಹಿಸಲಾಗಿದೆ',
+    orderPlaced: 'ಆರ್ಡರ್ ಆಗಿದೆ!', orderPlacedSub: 'ಆರ್ಡರ್‌ಗಳ ಟ್ಯಾಬ್‌ನಲ್ಲಿ ನೋಡಿ', items: 'ವಸ್ತುಗಳು',
+    demoOtp: 'ಡೆಮೊ OTP', thanks: 'ಧನ್ಯವಾದಗಳು!', searchVendors: 'ವ್ಯಾಪಾರಿ ಮತ್ತು ಸರಕು ಹುಡುಕಿ', allVendors: 'ಎಲ್ಲಾ ವ್ಯಾಪಾರಿಗಳು',
+  },
+  hi: {
+    chooseLanguage: 'अपनी भाषा चुनें', chooseLanguageSub: 'अपनी भाषा में थेले वालों से खरीदारी करें',
+    continue: 'जारी रखें', enterPhone: 'मोबाइल नंबर डालें', phoneSub: 'हम एक वन-टाइम कोड भेजेंगे',
+    getOtp: 'OTP भेजें', verifyOtp: 'OTP जाँचें', otpSub: 'भेजा गया 6-अंकों का कोड डालें', resendIn: 'दोबारा भेजें',
+    resend: 'OTP दोबारा भेजें', wrongOtp: 'गलत OTP. फिर कोशिश करें.', verifyAndContinue: 'जाँचें और आगे बढ़ें',
+    yourName: 'आपका पूरा नाम', completeSignup: 'खाता बनाएं', welcome: 'स्वागत', home: 'होम', orders: 'ऑर्डर',
+    udhaar: 'उधार', profile: 'प्रोफ़ाइल', nearbyVendors: 'आस-पास के ठेले', viewStore: 'दुकान देखें',
+    addToCart: 'जोड़ें', cart: 'कार्ट', yourCart: 'आपकी कार्ट', emptyCart: 'कार्ट खाली है',
+    emptyCartSub: 'पास के ठेलों से ताज़ा सब्ज़ी जोड़ें', total: 'कुल', placeOrder: 'ऑर्डर करें',
+    paymentMethod: 'भुगतान का तरीका', upi: 'UPI / QR', cash: 'डिलीवरी पर नकद', udhaarPay: 'उधार (बाद में भुगतान)',
+    deliveryAddress: 'डिलीवरी पता', myOrders: 'मेरे ऑर्डर', noOrders: 'अभी कोई ऑर्डर नहीं',
+    noOrdersSub: 'आपकी खरीदारी का इतिहास यहाँ दिखेगा', payment: 'भुगतान', paid: 'भुगतान हुआ',
+    pending: 'बाकी', payNow: 'अभी भुगतान करें', myUdhaar: 'मेरे उधार खाते', noUdhaar: 'कोई उधार नहीं 🎉',
+    noUdhaarSub: 'ठेलों से उधार खरीद यहाँ दिखेगी', repay: 'अभी चुकाएँ', owed: 'बाकी',
+    settled: 'चुका दिया', logout: 'लॉगआउट', language: 'भाषा', otpResent: 'नया OTP भेजा गया',
+    orderPlaced: 'ऑर्डर हो गया!', orderPlacedSub: 'ऑर्डर टैब में देखें', items: 'वस्तुएँ',
+    demoOtp: 'डेमो OTP', thanks: 'धन्यवाद!', searchVendors: 'दुकान और सामान खोजें', allVendors: 'सभी दुकानें',
+  },
+};
+
+export function getAppStrings(lang: string): Record<string, string> {
+  return APP_UI_STRINGS[lang] || APP_UI_STRINGS.en;
+}

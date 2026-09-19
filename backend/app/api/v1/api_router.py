@@ -1,11 +1,12 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    auth, vendors, products, inventory, sales, udhaar, orders, voice, mobility, weather, customer, sync, mandi
+    auth, vendors, products, inventory, sales, udhaar, orders, voice, mobility, weather, customer, sync, mandi, otp_auth, customer_app
 )
 
 api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(otp_auth.router, prefix="/auth/otp", tags=["OTP Authentication"])
 api_router.include_router(vendors.router, prefix="/vendors", tags=["Vendors"])
 api_router.include_router(products.router, prefix="/products", tags=["Products & Catalog"])
 api_router.include_router(inventory.router, prefix="/inventory", tags=["Inventory Ledger"])
@@ -18,4 +19,5 @@ api_router.include_router(weather.router, prefix="/weather", tags=["Weather Advi
 api_router.include_router(customer.router, prefix="/customer", tags=["Customer Discovery & Loyalty"])
 api_router.include_router(sync.router, prefix="/sync", tags=["Offline Synchronization"])
 api_router.include_router(mandi.router, prefix="/mandi", tags=["Mandi APMC & Micro-Credit Scorecard"])
+api_router.include_router(customer_app.router, prefix="/app", tags=["Customer App (B2C)"])
 

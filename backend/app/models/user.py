@@ -12,9 +12,33 @@ class UserRole(str, enum.Enum):
 
 
 class LanguagePreference(str, enum.Enum):
-    KN = "kn"  # Kannada
-    EN = "en"  # English
-    HI = "hi"  # Hindi
+    """All 22 scheduled languages of India plus English.
+
+    NOTE: SQLite stores enum values by name, so renaming members is safe for
+    existing rows; new members are additive.
+    """
+    KN = "kn"    # Kannada
+    EN = "en"    # English
+    HI = "hi"    # Hindi
+    TE = "te"    # Telugu
+    TA = "ta"    # Tamil
+    MR = "mr"    # Marathi
+    BN = "bn"    # Bengali
+    GU = "gu"    # Gujarati
+    PA = "pa"    # Punjabi
+    ML = "ml"    # Malayalam
+    OR = "or"    # Odia
+    AS = "as"    # Assamese
+    UR = "ur"    # Urdu
+    SD = "sd"    # Sindhi
+    NE = "ne"    # Nepali
+    MAI = "mai"  # Maithili
+    SA = "sa"    # Sanskrit
+    KS = "ks"    # Kashmiri
+    DOI = "doi"  # Dogri
+    KOK = "kok"  # Konkani
+    MNI = "mni"  # Meitei (Manipuri)
+    BHO = "bho"  # Bhojpuri (additional, widely spoken)
 
 
 class User(Base):
