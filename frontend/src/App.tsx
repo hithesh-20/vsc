@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { CustomerApp } from './components/CustomerApp';
+import { VendorMobileApp } from './components/VendorMobileApp';
 import { OnboardingScreens } from './components/OnboardingScreens';
 import { authService, AppSession, AuthResult } from './services/auth';
+import { vendorSession } from './services/vendorSession';
 
 const LANG_KEY = 'vs_app_language';
 
@@ -22,10 +24,16 @@ export const App: React.FC = () => {
       language: auth.language,
     };
     authService.saveSession(next);
-    setSession(next);
+    if (next.role === 'VENDOR') {
+      // Seed the vendor dashboard state, then route into it
+      vendorSession.activate(next).finally(() => setSession(next));
+    } else {
+      setSession(next);
+    }
   };
 
   const handleLogout = () => {
+    vendorSession.clear();
     authService.clearSession();
     setSession(null);
   };
@@ -60,9 +68,11 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* App content gate */}
+        {/* App content gate: vendor-role sessions enter the vendor dashboard */}
         {!session ? (
           <OnboardingFlow initialLanguage={prefLang} onAuthed={handleAuthed} onLanguage={handleLanguage} />
+        ) : session.role === 'VENDOR' ? (
+          <VendorMobileApp language={session.language} />
         ) : (
           <CustomerApp session={session} onLogout={handleLogout} onLanguageChange={handleLanguage} />
         )}
