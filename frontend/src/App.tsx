@@ -58,16 +58,6 @@ export const App: React.FC = () => {
       {/* Phone canvas — the app itself */}
       <div className="relative w-full max-w-[420px] h-screen sm:h-[94vh] sm:max-h-[920px] bg-white sm:rounded-[44px] sm:shadow-[0_40px_120px_-20px_rgba(249,115,22,0.45)] sm:ring-1 sm:ring-slate-800 overflow-hidden flex flex-col">
 
-        {/* Status bar */}
-        <div className="bg-white px-6 pt-3 pb-1 flex items-center justify-between text-[11px] font-black text-slate-900 flex-shrink-0">
-          <span>9:41</span>
-          <div className="w-24 h-6 bg-slate-950 rounded-full hidden sm:block" />
-          <div className="flex items-center space-x-1.5 text-slate-800">
-            <span>5G</span>
-            <span className="text-emerald-600">98% 🔋</span>
-          </div>
-        </div>
-
         {/* App content gate: vendor-role sessions enter the vendor dashboard */}
         {!session ? (
           <OnboardingFlow initialLanguage={prefLang} onAuthed={handleAuthed} onLanguage={handleLanguage} />
