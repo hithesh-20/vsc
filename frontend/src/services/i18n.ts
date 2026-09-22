@@ -1599,6 +1599,10 @@ export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
     settled: 'Settled', logout: 'Logout', language: 'Language', otpResent: 'A new OTP has been sent',
     orderPlaced: 'Order placed!', orderPlacedSub: 'Track it in the Orders tab', items: 'items',
     demoOtp: 'Demo OTP', thanks: 'Thank you!', searchVendors: 'Search vendors & products', allVendors: 'All vendors',
+    liveTracking: 'Live Tracking', live: 'LIVE', statusUpdated: 'Status updated just now',
+    stepPlaced: 'Placed', stepPacked: 'Packed', stepOutForDelivery: 'Out for delivery', stepDelivered: 'Delivered',
+    awaitingAccept: 'Waiting for the vendor to accept your order', liveOffline: 'Reconnecting to live updates…',
+    viewDetails: 'View details', hideDetails: 'Hide details', estDelivery: 'Estimated delivery',
   },
   kn: {
     chooseLanguage: 'ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ', chooseLanguageSub: 'ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಬೀದಿ ವ್ಯಾಪಾರಿಗಳಿಂದ ಖರೀದಿಸಿ',
@@ -1617,6 +1621,10 @@ export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
     settled: 'ತೀರ್ಮಾನವಾಗಿದೆ', logout: 'ಲಾಗ್‌ಔಟ್', language: 'ಭಾಷೆ', otpResent: 'ಹೊಸ OTP ಕಳುಹಿಸಲಾಗಿದೆ',
     orderPlaced: 'ಆರ್ಡರ್ ಆಗಿದೆ!', orderPlacedSub: 'ಆರ್ಡರ್‌ಗಳ ಟ್ಯಾಬ್‌ನಲ್ಲಿ ನೋಡಿ', items: 'ವಸ್ತುಗಳು',
     demoOtp: 'ಡೆಮೊ OTP', thanks: 'ಧನ್ಯವಾದಗಳು!', searchVendors: 'ವ್ಯಾಪಾರಿ ಮತ್ತು ಸರಕು ಹುಡುಕಿ', allVendors: 'ಎಲ್ಲಾ ವ್ಯಾಪಾರಿಗಳು',
+    liveTracking: 'ನೇರ ಮುನ್ನಡೆ', live: 'ನೇರ', statusUpdated: 'ಸ್ಥಿತಿ ಈಗಷ್ಟೇ ಬದಲಾಗಿದೆ',
+    stepPlaced: 'ಆರ್ಡರ್ ಆಗಿದೆ', stepPacked: 'ಪ್ಯಾಕ್ ಆಗಿದೆ', stepOutForDelivery: 'ಬಿತರಣೆಗೆ ಹೊರಟಿದೆ', stepDelivered: 'ಬಿತರಣೆಯಾಗಿದೆ',
+    awaitingAccept: 'ವ್ಯಾಪಾರಿ ನಿಮ್ಮ ಆರ್ಡರ್ ಸ್ವೀಕರಿಸಲು ಕಾಯುತ್ತಿದ್ದಾರೆ', liveOffline: 'ನೇರ ನವೀಕರಣಗಳಿಗೆ ಮರುಸಂಪರ್ಕ…',
+    viewDetails: 'ವಿವರ ನೋಡಿ', hideDetails: 'ವಿವರ ಮರೆಮಾಡಿ', estDelivery: 'ಅಂದಾಜು ಬಿತರಣೆ',
   },
   hi: {
     chooseLanguage: 'अपनी भाषा चुनें', chooseLanguageSub: 'अपनी भाषा में थेले वालों से खरीदारी करें',
@@ -1635,6 +1643,10 @@ export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
     settled: 'चुका दिया', logout: 'लॉगआउट', language: 'भाषा', otpResent: 'नया OTP भेजा गया',
     orderPlaced: 'ऑर्डर हो गया!', orderPlacedSub: 'ऑर्डर टैब में देखें', items: 'वस्तुएँ',
     demoOtp: 'डेमो OTP', thanks: 'धन्यवाद!', searchVendors: 'दुकान और सामान खोजें', allVendors: 'सभी दुकानें',
+    liveTracking: 'लाइव ट्रैकिंग', live: 'लाइव', statusUpdated: 'स्थिति अभी अपडेट हुई',
+    stepPlaced: 'ऑर्डर हुआ', stepPacked: 'पैक हुआ', stepOutForDelivery: 'डिलीवरी के लिए निकला', stepDelivered: 'पहुँच गया',
+    awaitingAccept: 'दुकानदार के ऑर्डर स्वीकार करने का इंतज़ार', liveOffline: 'लाइव अपडेट से फिर जुड़ रहे हैं…',
+    viewDetails: 'विवरण देखें', hideDetails: 'विवरण छिपाएँ', estDelivery: 'अनुमानित डिलीवरी',
   },
 };
 

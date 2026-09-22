@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Home, Receipt, NotebookPen, User as UserIcon, ShoppingBag, Plus, Minus, Trash2,
   Star, MapPin, Clock, X, ArrowRight, QrCode, Banknote, NotebookTabs, Search,
-  ChevronLeft, CheckCircle2, BadgeIndianRupee, Smartphone, Languages, LogOut, RefreshCw
+  ChevronLeft, CheckCircle2, BadgeIndianRupee, Smartphone, Languages, LogOut, RefreshCw,
+  Truck, PackageCheck
 } from 'lucide-react';
 import { Vendor, Product, Order, CartItem } from '../types';
 import { api } from '../services/api';
-import { customerAppApi, AppSession } from '../services/auth';
+import { customerAppApi, AppSession, subscribeToOrderUpdates, LiveOrderEvent } from '../services/auth';
 import { getAppStrings, getProductLocalizedName } from '../services/i18n';
 import { sounds } from '../services/sound';
 
@@ -17,6 +18,44 @@ interface CustomerAppProps {
 }
 
 type Tab = 'home' | 'orders' | 'udhaar' | 'profile';
+
+const TRACK_STEPS = ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY', 'COMPLETED'] as const;
+
+/** Vertical status timeline: placed → packed → out for delivery → delivered. */
+const OrderTimeline: React.FC<{ status: Order['status']; t: Record<string, string> }> = ({ status, t }) => {
+  const idx = TRACK_STEPS.indexOf(status as typeof TRACK_STEPS[number]);
+  if (idx === -1) return null; // CANCELLED or unknown → no timeline
+  const labels = [t.stepPlaced, t.stepPacked, t.stepOutForDelivery, t.stepDelivered];
+  return (
+    <div className="mt-3 pl-1">
+      {TRACK_STEPS.slice(0, 4).map((step, i) => {
+        const done = i < idx;
+        const current = i === idx;
+        const last = i === 3;
+        return (
+          <div key={step} className="flex items-start space-x-2.5">
+            <div className="flex flex-col items-center">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center transition ${
+                done ? 'bg-emerald-500' : current ? 'bg-orange-500 ring-4 ring-orange-100' : 'bg-slate-200'
+              }`}>
+                {done && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                {current && (i === 3
+                  ? <PackageCheck className="w-3 h-3 text-white" />
+                  : <Truck className={`w-3 h-3 text-white ${current && i === 2 ? 'animate-pulse' : ''}`} />)}
+              </div>
+              {!last && <div className={`w-0.5 h-5 ${done ? 'bg-emerald-400' : 'bg-slate-200'}`} />}
+            </div>
+            <span className={`text-[11px] font-black leading-5 ${
+              current ? 'text-orange-600' : done ? 'text-slate-600' : 'text-slate-300'
+            }`}>
+              {labels[i]}{current && i === 0 ? '…' : ''}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const FALLBACK_VENDORS: Vendor[] = [
   {
@@ -57,6 +96,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
 
   // misc
   const [search, setSearch] = useState('');
+  const [liveStatuses, setLiveStatuses] = useState<{ [orderId: string]: { status: string; at: number } }>({});
+  const [liveOnline, setLiveOnline] = useState(false);
+  const [expandedOrders, setExpandedOrders] = useState<{ [orderId: string]: boolean }>({});
 
   useEffect(() => {
     api.getNearbyVendors(12.9716, 77.5946).then(v => setVendors(v.length ? v : FALLBACK_VENDORS));
@@ -76,6 +118,38 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
       setProfile(p);
     } catch { /* backend offline: demo mode */ }
   };
+
+  // Live push channel from the vendor's status updates (auto-reconnects)
+  useEffect(() => {
+    const unsubscribe = subscribeToOrderUpdates(
+      session.user_id,
+      (ev: LiveOrderEvent) => {
+        setLiveStatuses(prev => ({ ...prev, [ev.order_id]: { status: ev.status, at: Date.now() } }));
+        sounds.playSuccessChime();
+      },
+      setLiveOnline,
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.user_id]);
+
+  // Periodic refresh as a safety net (also catches CANCELLED + payment changes)
+  useEffect(() => {
+    const id = window.setInterval(refreshData, 30000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Orders merged with any fresher live WebSocket status. */
+  const liveOrders: Order[] = useMemo(
+    () => orders.map(o => {
+      const live = liveStatuses[o.id];
+      return live && live.status !== o.status ? { ...o, status: live.status as Order['status'] } : o;
+    }),
+    [orders, liveStatuses]
+  );
+  const activeOrders = liveOrders.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status));
+  const pastOrders = liveOrders.filter(o => ['COMPLETED', 'CANCELLED'].includes(o.status));
 
   const totalUdhaar = useMemo(
     () => udhaar.filter(r => r.remaining_balance > 0).reduce((s, r) => s + r.remaining_balance, 0),
@@ -282,7 +356,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
       {/* ===== ORDERS ===== */}
       {tab === 'orders' && (
         <div className="flex-1 overflow-y-auto px-4 pb-6">
-          <h2 className="pt-5 pb-3 text-xl font-black text-slate-900">{t.myOrders}</h2>
+          <h2 className="pt-5 pb-1 text-xl font-black text-slate-900">{t.myOrders}</h2>
           {orders.length === 0 ? (
             <div className="pt-20 text-center">
               <Receipt className="w-12 h-12 mx-auto text-slate-200" />
@@ -291,8 +365,21 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
             </div>
           ) : (
             <div className="space-y-3">
-              {orders.map(o => (
-                <div key={o.id} className="bg-white rounded-2xl border border-slate-100 p-4">
+              {activeOrders.length > 0 && (
+                <div className="flex items-center space-x-1.5 pb-1 pt-1">
+                  <span className={`w-1.5 h-1.5 rounded-full ${liveOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    {liveOnline ? t.liveTracking : t.liveOffline}
+                  </span>
+                  <span className="flex-1 h-px bg-slate-100" />
+                </div>
+              )}
+              {liveOrders.map(o => {
+                const isActive = !['COMPLETED', 'CANCELLED'].includes(o.status);
+                const expanded = expandedOrders[o.id] !== false;
+                const justUpdated = !!liveStatuses[o.id] && Date.now() - liveStatuses[o.id].at < 60000;
+                return (
+                <div key={o.id} className={`bg-white rounded-2xl border p-4 ${isActive && justUpdated ? 'border-orange-200 shadow-sm shadow-orange-50' : 'border-slate-100'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-black text-sm text-slate-900">{o.order_number}</p>
@@ -311,6 +398,21 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
                       </span>
                     </div>
                   </div>
+                  {isActive && (
+                    <button
+                      onClick={() => setExpandedOrders(s => ({ ...s, [o.id]: !s[o.id] }))}
+                      className="mt-2.5 flex items-center space-x-1 text-[10px] font-black text-orange-600 active:scale-95 transition"
+                    >
+                      <Truck className="w-3 h-3" />
+                      <span>{expanded ? t.hideDetails : t.viewDetails}</span>
+                    </button>
+                  )}
+                  {isActive && expanded && (
+                    <>
+                      <OrderTimeline status={o.status} t={t} />
+                      {justUpdated && <p className="mt-1.5 text-[9px] font-black text-emerald-500">✓ {t.statusUpdated}</p>}
+                    </>
+                  )}
                   {o.payment_status !== 'COMPLETED' && o.payment_mode !== 'UDHAAR' && (
                     <div className="mt-3 flex space-x-2">
                       <button onClick={() => payExistingOrder(o.id, 'UPI')} className="flex-1 py-2.5 bg-orange-500 text-white text-xs font-black rounded-xl active:scale-95 transition">
@@ -322,7 +424,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -445,6 +548,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
         ))}
       </div>
 
+      </div>
+      )}
+
       {/* ===== CART SHEET ===== */}
       {cartOpen && (
         <div className="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-sm flex items-end" onClick={() => setCartOpen(false)}>
@@ -560,8 +666,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ session, onLogout, onL
             </button>
           </div>
         </div>
-      )}
-      </div>
       )}
     </>
   );

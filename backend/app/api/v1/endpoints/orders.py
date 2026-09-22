@@ -22,6 +22,7 @@ router = APIRouter()
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, List[WebSocket]] = {}
+        self.customer_connections: dict[str, List[WebSocket]] = {}
 
     async def connect(self, key: str, websocket: WebSocket):
         await websocket.accept()
@@ -38,8 +39,31 @@ class ConnectionManager:
             for conn in self.active_connections[vendor_id]:
                 await conn.send_json(message)
 
+    async def connect_customer(self, user_id: str, websocket: WebSocket):
+        await websocket.accept()
+        if user_id not in self.customer_connections:
+            self.customer_connections[user_id] = []
+        self.customer_connections[user_id].append(websocket)
+
+    def disconnect_customer(self, user_id: str, websocket: WebSocket):
+        if user_id in self.customer_connections:
+            self.customer_connections[user_id].remove(websocket)
+
+    async def broadcast_to_customer(self, user_id: str, message: dict):
+        if user_id in self.customer_connections:
+            for conn in self.customer_connections[user_id]:
+                await conn.send_json(message)
+
 
 ws_manager = ConnectionManager()
+
+
+async def notify_customer(user_id: str, message: dict):
+    """Push a live event to a customer's tracking screen (no-op if not connected)."""
+    try:
+        await ws_manager.broadcast_to_customer(user_id, message)
+    except Exception:
+        pass  # Never fail the order update because of a push error
 
 
 @router.post("", response_model=APIResponse[OrderResponse], status_code=status.HTTP_201_CREATED)
@@ -137,7 +161,7 @@ def get_vendor_orders(
 
 
 @router.put("/{order_id}/status", response_model=APIResponse[OrderResponse])
-def update_order_status(
+async def update_order_status(
     order_id: str,
     status_in: OrderStatusUpdate,
     vendor: Vendor = Depends(get_current_vendor),
@@ -172,6 +196,25 @@ def update_order_status(
 
     db.commit()
     db.refresh(order)
+
+    # Live push to the customer's tracking screen
+    customer_user_id = (
+        db.query(User.id)
+        .join(Customer, Customer.user_id == User.id)
+        .filter(Customer.id == order.customer_id)
+        .scalar()
+    )
+    await notify_customer(customer_user_id, {
+        "event": "ORDER_STATUS_UPDATE",
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "payment_status": order.payment_status.value if hasattr(order.payment_status, "value") else str(order.payment_status),
+        "total_amount": order.total_amount,
+        "estimated_delivery_time": order.estimated_delivery_time.isoformat() if order.estimated_delivery_time else None,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
     return APIResponse(message=f"Order status changed to {order.status.value}", data=OrderResponse.model_validate(order))
 
 
@@ -184,3 +227,14 @@ async def vendor_websocket_endpoint(websocket: WebSocket, vendor_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         ws_manager.disconnect(vendor_id, websocket)
+
+
+@router.websocket("/ws/customer/{user_id}")
+async def customer_websocket_endpoint(websocket: WebSocket, user_id: str):
+    """Realtime channel for customer order tracking (status updates pushed live)."""
+    await ws_manager.connect_customer(user_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect_customer(user_id, websocket)

@@ -189,10 +189,67 @@ export const customerAppApi = {
 
   async updateLanguage(token: string, lang: string) {
     const res = await fetch(`${API_BASE}/app/profile/language?lang=${lang}`, {
-      method: 'PUT',
       headers: authHeaders(token),
     });
     const body = await parse(res);
     return body.data;
   },
 };
+
+// ------------------------------------------------------------------
+// Live order tracking (WebSocket with automatic reconnect)
+// ------------------------------------------------------------------
+
+export interface LiveOrderEvent {
+  event: 'ORDER_STATUS_UPDATE';
+  order_id: string;
+  order_number: string;
+  status: 'PENDING' | 'ACCEPTED' | 'PACKED' | 'OUT_FOR_DELIVERY' | 'COMPLETED' | 'CANCELLED';
+  payment_status?: string;
+  total_amount?: number;
+  estimated_delivery_time?: string | null;
+  timestamp?: string;
+}
+
+export function subscribeToOrderUpdates(
+  userId: string,
+  onEvent: (ev: LiveOrderEvent) => void,
+  onConnectionChange?: (online: boolean) => void,
+): () => void {
+  const wsUrl = API_BASE.replace(/^http/, 'ws') + `/orders/ws/customer/${userId}`;
+  let socket: WebSocket | null = null;
+  let reconnectTimer: number | undefined;
+  let closed = false;
+
+  const connect = () => {
+    if (closed) return;
+    try { socket = new WebSocket(wsUrl); } catch { scheduleReconnect(); return; }
+    socket.onopen = () => onConnectionChange?.(true);
+    socket.onmessage = (msg) => {
+      try {
+        const ev = JSON.parse(msg.data) as LiveOrderEvent;
+        if (ev?.event === 'ORDER_STATUS_UPDATE') onEvent(ev);
+      } catch { /* ignore malformed frames */ }
+    };
+    socket.onclose = () => {
+      onConnectionChange?.(false);
+      socket = null;
+      scheduleReconnect();
+    };
+    socket.onerror = () => socket?.close();
+  };
+
+  const scheduleReconnect = () => {
+    if (closed || reconnectTimer !== undefined) return;
+    reconnectTimer = window.setTimeout(() => { reconnectTimer = undefined; connect(); }, 3000);
+  };
+
+  connect();
+
+  return () => {
+    closed = true;
+    if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+    socket?.close();
+    socket = null;
+  };
+}
