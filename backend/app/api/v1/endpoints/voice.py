@@ -1,12 +1,14 @@
-from typing import List
+from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_vendor
 from app.models.vendor import Vendor
+from app.assistant.engine import handle_message
+from app.assistant.languages import detect_language
+from app.services.voice_service import KannadaVoiceService
 from app.schemas.voice import VoiceQueryRequest, VoiceActionResponse, VoiceGuidanceResponse
 from app.schemas.common import APIResponse
-from app.services.voice_service import KannadaVoiceService
 
 router = APIRouter()
 
@@ -34,14 +36,24 @@ FEATURE_GUIDANCE_DB = {
         "title_en": "Smart Location & Mobility",
         "title_kn": "ಸ್ಮಾರ್ಟ್ ಸ್ಥಳ ಮತ್ತು ಮಾರ್ಗ",
         "desc_en": "See which village or market has the highest customer demand today with zero competing vendors, saving you time and fuel.",
-        "desc_kn": "ಯಾವ ಹಳ್ಳಿ ಅಥವಾ ಮಾರುಕಟ್ಟೆಯಲ್ಲಿ ಇಂದು ಹೆಚ್ಚು ಬೇಡಿಕೆ ಇದೆ ಮತ್ತು ಕಡಿಮೆ ಸ್ಪರ್ಧೆ ಇದೆ ಎಂದು ತಿಳಿದುಕೊಳ್ಳಿ."
+        "desc_kn": "ಯಾವ ಹಳ್ಳಿ ಅಥವಾ ಮಾರುಕಟ್ಟೆಯಲ್ಲಿ ಇಂದು ಹೆಚ್ಚು ಬೇಡಿಕೆ ಇದೆ ಮತ್ತು ಕಡಿಮೆ ಸ್ಪರ್ಧೆ ಇದೆ ಎಂದು ತಿಳಿಯಿರಿ, ಸಮಯ ಮತ್ತು ಇಂಧನ ಉಳಿಸಿ."
     },
     "analytics": {
         "title_en": "Profit & Daily Analytics",
         "title_kn": "ಲಾಭ ಮತ್ತು ದಿನದ ಲೆಕ್ಕಾಚಾರ",
         "desc_en": "Automatically calculates: Total Revenue minus Item Purchase Cost equals Exact Net Profit in your pocket.",
-        "desc_kn": "ಸ್ವಯಂಚಾಲಿತ ಲೆಕ್ಕಾಚಾರ: ಒಟ್ಟು ಮಾರಾಟ ಹಣದಿಂದ ಖರೀದಿ ವೆಚ್ಚ ಕಳೆದು ನಿಮ್ಮ ನಿವ್ವಳ ಲಾಭವನ್ನು ತೋರಿಸುತ್ತದೆ."
+        "desc_kn": "ಸ್ವಯಂಚಾಲಿತ ಲೆಕ್ಕಾಚಾರ: ಒಟ್ಟು ಮಾರಾಟ ಹಣದಿಂದ ಖರೀದಿ ವೆಚ್ಚ ಕಳೆದ ಮೇಲೆ ಉಳಿಯುವ ನಿವ್ವಳ ಲಾಭ."
     }
+}
+
+# Universal-engine tool names → legacy detected_intent names. /voice/query
+# predates the universal assistant and some clients/tests assert the old
+# intent vocabulary, so the adapter translates on the way out.
+_LEGACY_INTENT = {
+    "get_sales": "get_today_sales",
+    "get_orders": "get_pending_orders",
+    "get_customer_credit": "get_udhaar",
+    "update_inventory": "add_inventory",
 }
 
 
@@ -51,52 +63,84 @@ async def process_voice_query(
     vendor: Vendor = Depends(get_current_vendor),
     db: Session = Depends(get_db)
 ):
-    """Process voice/text query in any selected Indian regional language and execute tool with audio response."""
-    if not request.query_text:
+    """Process a voice/text query in any Indian regional language.
+
+    ONE brain: this endpoint now routes through the same universal assistant
+    engine that powers POST /voice/chat and /voice/chat/stream (shared intent
+    router, tools, confirmation flow, session memory). It remains a thin
+    legacy-compatible adapter — the request shape (query_text/language) and
+    response shape (detected_intent/speech_response_kn/action_performed) are
+    unchanged, so older clients keep working.
+    """
+    if not request.query_text or not request.query_text.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Query text required")
 
-    req_lang = request.language or "kn"
+    text = request.query_text.strip()
+    req_lang = request.language or "en"
+    # Stateless per-request sessions: /voice/query never promised conversation
+    # memory, and old clients don't resend confirmations.
+    session_id = f"vq-{vendor.user_id}-{text[:12]}"
 
-    result = await KannadaVoiceService.process_voice_query(
+    result = handle_message(
         db=db,
+        user=vendor.user,
         vendor=vendor,
-        query_text=request.query_text,
+        text=text,
+        session_id=session_id,
         preferred_lang=req_lang,
-        language=req_lang
     )
 
-    # Synthesize native speech audio in the detected regional language
-    detected_lang = result.get("language") or req_lang
-    native_text = result.get("speech_response_native") or result.get("speech_response_kn") or result.get("speech_response_text", "")
-    audio_base64 = KannadaVoiceService.synthesize_speech_base64(native_text, lang=detected_lang)
+    reply = result["response"]
+    reply_lang = detect_language(reply, fallback=req_lang)
 
-    response_data = VoiceActionResponse(
-        recognized_text=result["recognized_text"],
-        detected_intent=result["detected_intent"],
-        language=result["language"],
-        speech_response_text=result["speech_response_text"],
-        speech_response_kn=native_text,
-        action_performed=result["action_performed"],
-        data_payload=result["data_payload"],
-        audio_base64_response=audio_base64
+    # Same TTS the streaming endpoint uses — one voice pipeline app-wide.
+    audio_base64 = KannadaVoiceService.synthesize_speech_base64(reply, lang=reply_lang)
+
+    tool_used = result.get("tool_used")
+    detected_intent = _LEGACY_INTENT.get(tool_used or "", tool_used or "general_help")
+    requires_confirmation = bool(result.get("requires_confirmation", False))
+
+    data_payload: Dict = {
+        "tool_used": tool_used,
+        "data": result.get("data") or {},
+        "requires_confirmation": requires_confirmation,
+        "pending_action": result.get("pending_action"),
+        "conversation_id": result.get("conversation_id") or session_id,
+    }
+
+    return APIResponse(
+        data=VoiceActionResponse(
+            recognized_text=text,
+            detected_intent=detected_intent,
+            language=reply_lang,
+            # The engine answers in the speaker's language (English fallback
+            # inside the engine), so both text fields carry the same reply.
+            speech_response_text=reply,
+            speech_response_kn=reply,
+            # True only when something was actually done — a read-only lookup
+            # or a pending (unconfirmed) money action is not a performed action.
+            action_performed=bool(tool_used) and not requires_confirmation,
+            data_payload=data_payload,
+            audio_base64_response=audio_base64,
+        )
     )
-
-    return APIResponse(data=response_data)
 
 
 @router.get("/guidance/{feature_key}", response_model=APIResponse[VoiceGuidanceResponse])
 def get_feature_guidance(feature_key: str):
     """Provide simple audio/visual explanation of a feature in Kannada and English."""
     key = feature_key.lower().strip()
-    if key not in FEATURE_GUIDANCE_DB:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feature guidance not found")
+    entry = FEATURE_GUIDANCE_DB.get(key)
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown feature")
 
-    item = FEATURE_GUIDANCE_DB[key]
-    guidance = VoiceGuidanceResponse(
-        feature_key=key,
-        feature_title_en=item["title_en"],
-        feature_title_kn=item["title_kn"],
-        explanation_en=item["desc_en"],
-        explanation_kn=item["desc_kn"]
+    return APIResponse(
+        data=VoiceGuidanceResponse(
+            feature_key=key,
+            feature_title_en=entry["title_en"],
+            feature_title_kn=entry["title_kn"],
+            explanation_en=entry["desc_en"],
+            explanation_kn=entry["desc_kn"],
+            audio_url=None,
+        )
     )
-    return APIResponse(data=guidance)

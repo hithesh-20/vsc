@@ -38,6 +38,17 @@ class LocationRecommendation(BaseModel):
     recommendation_reason: str
     recommendation_reason_kn: str
     weather_condition: str
+    # Rendered on the vendor dashboard's Smart Route card — omitted from the
+    # response model they used to be filtered out and the card showed ₹NaN.
+    estimated_turnover_inr: int = 0
+    high_demand_products: List[str] = []
+    saturated_products: List[str] = []
+    # Consumed by the Route AI tab: server-computed Maps deep link, saturation
+    # risk %, and the OPTIMAL_PRIMARY / ALTERNATIVE_REROUTE strategy. The Maps
+    # button silently lost its driving-optimized URL until these were declared.
+    cannibalization_risk_percent: float = 0.0
+    route_strategy: str = "OPTIMAL_PRIMARY"
+    google_maps_url: str = ""
 
 
 class LocationRecommendationResponse(BaseModel):

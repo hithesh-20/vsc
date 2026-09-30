@@ -1,7 +1,7 @@
 import { Vendor, Product, Order, LoyaltyData } from '../types';
 
 // Dynamic production/development API endpoint configuration
-const getApiBase = (): string => {
+export const getApiBase = (): string => {
   const metaEnv = (import.meta as any).env;
   if (metaEnv && metaEnv.VITE_API_BASE_URL) {
     return metaEnv.VITE_API_BASE_URL;
@@ -128,8 +128,9 @@ export const api = {
 
   // Place Order
   async createOrder(token: string, vendorId: string, items: { product_id: string; quantity: number }[], paymentMode: string, address: string) {
+    let res: Response;
     try {
-      const res = await fetch(`${API_BASE}/orders`, {
+      res = await fetch(`${API_BASE}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,8 +143,8 @@ export const api = {
           payment_mode: paymentMode
         })
       });
-      return await res.json();
     } catch (_) {
+      // Backend offline → demo-mode mock order so the UI keeps working
       return {
         success: true,
         data: {
@@ -158,6 +159,12 @@ export const api = {
         }
       };
     }
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      // Surface real backend validation errors (unavailable product, etc.)
+      throw new Error(json?.detail || `Order failed (${res.status})`);
+    }
+    return json;
   },
 
   // Loyalty status

@@ -31,7 +31,10 @@ def seed_database():
         cat_snacks = Category(name="Snacks & Fast Food", name_kn="ತಿಂಡಿ ಮತ್ತು ತಿಂಡಿಗಳು", icon_name="utensils", description="Hot street food & snacks")
         cat_beverages = Category(name="Tea & Beverages", name_kn="ಚಹಾ ಮತ್ತು ಪಾನೀಯಗಳು", icon_name="coffee", description="Tea, Coffee & Fresh Juices")
         cat_groceries = Category(name="Groceries", name_kn="ದಿನಸಿ ವಸ್ತುಗಳು", icon_name="shopping-bag", description="Daily essentials")
-        db.add_all([cat_veg, cat_fruits, cat_snacks, cat_beverages, cat_groceries])
+        cat_spices = Category(name="Spices & Masala", name_kn="ಮಸಾಲೆ ಪದಾರ್ಥಗಳು", icon_name="sparkles", description="Ground, whole & blended spices")
+        cat_dairy = Category(name="Dairy & Eggs", name_kn="ಹಾಲು ಮತ್ತು ಮೊಟ್ಟೆ", icon_name="milk", description="Milk, curd, ghee, paneer & eggs")
+        cat_staples = Category(name="Rice, Dal & Atta", name_kn="ಅಕ್ಕಿ, ಬೇಳೆ ಮತ್ತು ಹಿಟ್ಟು", icon_name="wheat", description="Kitchen staples: rice, pulses, flour & oil")
+        db.add_all([cat_veg, cat_fruits, cat_snacks, cat_beverages, cat_groceries, cat_spices, cat_dairy, cat_staples])
         db.flush()
 
         # 2. Vendors & Users
@@ -86,6 +89,33 @@ def seed_database():
             upi_id="manjunath.fruits@okaxis"
         )
         db.add(v2)
+        db.flush()
+
+        # Vendor 3: Lakshmi Spice & Staples Store (Account: 9876543212 / 1234)
+        u3 = User(
+            phone="9876543212",
+            hashed_password=get_password_hash("1234"),
+            role=UserRole.VENDOR,
+            language_pref=LanguagePreference.KN
+        )
+        db.add(u3)
+        db.flush()
+
+        v3 = Vendor(
+            user_id=u3.id,
+            business_name="Lakshmi Spice & Staples Store",
+            business_name_kn="ಲಕ್ಷ್ಮಿ ಮಸಾಲೆ ಮತ್ತು ದಿನಸಿ ಅಂಗಡಿ",
+            business_category="Spices & Staples",
+            operating_location="Market Street Corner Shop",
+            current_lat=12.9752,
+            current_lon=77.5990,
+            operating_radius_km=12.0,
+            rating_avg=4.8,
+            rating_count=52.0,
+            working_hours="08:00 AM - 09:30 PM",
+            upi_id="lakshmi.spices@okicici"
+        )
+        db.add(v3)
 
         # 3. Customer Account (Primary Demo Customer: 9876543220 / 1234)
         u_cust = User(
@@ -119,6 +149,19 @@ def seed_database():
             ("Carrot", "ಕ್ಯಾರೆಟ್", cat_veg.id, ProductUnit.KG, 30.0, 50.0, 12.0, 4.0, "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400"),
             ("Cucumber", "ಸೌತೆಕಾಯಿ", cat_veg.id, ProductUnit.KG, 20.0, 35.0, 15.0, 3.0, "https://images.unsplash.com/photo-1604977042946-1eecc30f269e?w=400"),
             ("Ladies Finger (Bhindi)", "ಬೆಂಡೆಕಾಯಿ", cat_veg.id, ProductUnit.KG, 28.0, 45.0, 3.5, 5.0, "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=400"),  # Low stock trigger
+            # --- Special spices (sold as 100g packets, like a real village cart) ---
+            ("Turmeric Powder (100g Pack)", "ಅರಿಶಿನ ಪುಡಿ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 11.0, 16.0, 60.0, 15.0, "https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=400"),
+            ("Red Chilli Powder (100g Pack)", "ಮೆಣಸಿನ ಪುಡಿ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 14.0, 20.0, 55.0, 15.0, "https://loremflickr.com/400/300/red,chilli,powder"),
+            ("Coriander Seeds (100g Pack)", "ಕೊತ್ತಂಬರಿ ಬೀಜ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 9.0, 13.0, 45.0, 12.0, "https://images.unsplash.com/photo-1532336414038-cf19250c5757?w=400"),
+            ("Cumin Seeds (100g Pack)", "ಜೀರಿಗೆ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 24.0, 32.0, 40.0, 10.0, "https://loremflickr.com/400/300/cumin,seeds"),
+            ("Sambar Masala (100g Pack)", "ಸಾಂಬಾರ್ ಪುಡಿ", cat_spices.id, ProductUnit.PACKET, 28.0, 40.0, 40.0, 10.0, "https://images.unsplash.com/photo-1596797038530-2c107229654b?w=400"),
+            ("Rasam Masala (100g Pack)", "ರಸಂ ಪುಡಿ", cat_spices.id, ProductUnit.PACKET, 26.0, 38.0, 35.0, 10.0, "https://images.unsplash.com/photo-1583119912267-cc97c911e416?w=400"),
+            # --- Kitchen staples (major products) ---
+            ("Sona Masoori Rice", "ಸೋನಾ ಮಸೂರಿ ಅಕ್ಕಿ", cat_staples.id, ProductUnit.KG, 52.0, 68.0, 120.0, 25.0, "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400"),
+            ("Toor Dal", "ತೊಗರಿ ಬೇಳೆ", cat_staples.id, ProductUnit.KG, 110.0, 145.0, 80.0, 15.0, "https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?w=400"),
+            ("Whole Wheat Atta", "ಗೋಧಿ ಹಿಟ್ಟು", cat_staples.id, ProductUnit.KG, 38.0, 52.0, 90.0, 20.0, "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400"),
+            ("Sunflower Cooking Oil (1L)", "ಸೂರ್ಯಕಾಂತಿ ಎಣ್ಣೆ", cat_staples.id, ProductUnit.LITER, 120.0, 150.0, 60.0, 12.0, "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400"),
+            ("Tamarind Block", "ಹುಣಸೆ ಹಣ್ಣು", cat_staples.id, ProductUnit.KG, 90.0, 130.0, 30.0, 8.0, None),
         ]
 
         created_products = []
@@ -228,6 +271,61 @@ def seed_database():
                 status=st,
                 notes=notes,
                 due_date=datetime.now(timezone.utc) + timedelta(days=3)
+            ))
+
+        # 6b. Products for Vendor 3 (Lakshmi Spice & Staples Store)
+        products_v3_data = [
+            # Special spices — the shop's core range (fixed-weight packets, kirana style)
+            ("Turmeric Powder (100g Pack)", "ಅರಿಶಿನ ಪುಡಿ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 10.0, 15.0, 120.0, 25.0, "https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=400"),
+            ("Red Chilli Powder (100g Pack)", "ಮೆಣಸಿನ ಪುಡಿ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 13.0, 19.0, 110.0, 25.0, "https://loremflickr.com/400/300/red,chilli,powder"),
+            ("Black Pepper (50g Pack)", "ಕರಿ ಮೆಣಸು 50ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 28.0, 38.0, 70.0, 15.0, "https://images.unsplash.com/photo-1509358271058-acd22cc93898?w=400"),
+            ("Cardamom (10g Pack)", "ಏಲಕ್ಕಿ 10ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 24.0, 30.0, 60.0, 12.0, None),
+            ("Cumin Seeds (100g Pack)", "ಜೀರಿಗೆ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 23.0, 31.0, 80.0, 18.0, "https://loremflickr.com/400/300/cumin,seeds"),
+            ("Mustard Seeds (100g Pack)", "ಸಾಸಿವೆ 100ಗ್ರಾಂ", cat_spices.id, ProductUnit.PACKET, 8.0, 12.0, 90.0, 20.0, "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=400"),
+            ("Garam Masala (100g Pack)", "ಗರಂ ಮಸಾಲಾ", cat_spices.id, ProductUnit.PACKET, 32.0, 48.0, 50.0, 12.0, "https://images.unsplash.com/photo-1596797038530-2c107229654b?w=400"),
+            ("Bisi Bele Bath Masala (100g)", "ಬಿಸಿ ಬೇಳೆ ಬಾತ್ ಪುಡಿ", cat_spices.id, ProductUnit.PACKET, 30.0, 45.0, 45.0, 10.0, None),
+            # Major staples — rice, dal, atta, oil, sugar
+            ("Sona Masoori Rice", "ಸೋನಾ ಮಸೂರಿ ಅಕ್ಕಿ", cat_staples.id, ProductUnit.KG, 50.0, 65.0, 300.0, 50.0, "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400"),
+            ("Basmati Rice", "ಬಾಸ್ಮತಿ ಅಕ್ಕಿ", cat_staples.id, ProductUnit.KG, 95.0, 130.0, 150.0, 25.0, "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400"),
+            ("Toor Dal", "ತೊಗರಿ ಬೇಳೆ", cat_staples.id, ProductUnit.KG, 108.0, 140.0, 200.0, 30.0, "https://loremflickr.com/400/300/dal,pulses"),
+            ("Urad Dal", "ಉದ್ದಿನ ಬೇಳೆ", cat_staples.id, ProductUnit.KG, 105.0, 138.0, 150.0, 25.0, "https://loremflickr.com/400/300/dal,pulses"),
+            ("Chana Dal", "ಕಡಲೆ ಬೇಳೆ", cat_staples.id, ProductUnit.KG, 75.0, 98.0, 180.0, 25.0, "https://loremflickr.com/400/300/dal,pulses"),
+            ("Whole Wheat Atta", "ಗೋಧಿ ಹಿಟ್ಟು", cat_staples.id, ProductUnit.KG, 36.0, 50.0, 250.0, 40.0, "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400"),
+            ("Maida (Refined Flour)", "ಮೈದಾ ಹಿಟ್ಟು", cat_staples.id, ProductUnit.KG, 34.0, 46.0, 120.0, 20.0, "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400"),
+            ("Sunflower Cooking Oil (1L)", "ಸೂರ್ಯಕಾಂತಿ ಎಣ್ಣೆ", cat_staples.id, ProductUnit.LITER, 118.0, 148.0, 150.0, 25.0, "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400"),
+            ("Coconut Oil (500ml)", "ಕೊಬ್ಬರಿ ಎಣ್ಣೆ", cat_staples.id, ProductUnit.LITER, 145.0, 185.0, 80.0, 15.0, "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400"),
+            ("Sugar", "ಸಕ್ಕರೆ", cat_staples.id, ProductUnit.KG, 40.0, 48.0, 200.0, 30.0, "https://loremflickr.com/400/300/sugarcube"),
+            # Dairy essentials
+            ("Nandini Toned Milk (500ml)", "ನಂದಿನಿ ಹಾಲು", cat_dairy.id, ProductUnit.PACKET, 22.0, 25.0, 60.0, 10.0, "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400"),
+            ("Curd (500g)", "ಮೊಸರು", cat_dairy.id, ProductUnit.PACKET, 20.0, 28.0, 40.0, 8.0, "https://loremflickr.com/400/300/yogurt"),
+            ("Ghee (Dabbi, 500ml)", "ತುಪ್ಪ", cat_dairy.id, ProductUnit.LITER, 320.0, 395.0, 40.0, 8.0, "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400"),
+            ("Farm Eggs (Dozen)", "ಮೊಟ್ಟೆಗಳು", cat_dairy.id, ProductUnit.DOZEN, 72.0, 90.0, 25.0, 6.0, "https://loremflickr.com/400/300/eggs,basket"),
+            ("Paneer (200g)", "ಪನೀರ್", cat_dairy.id, ProductUnit.PACKET, 75.0, 95.0, 30.0, 6.0, "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=400"),
+        ]
+
+        for name_en, name_kn, cid, unit, cost, sell, stock, low_th, img in products_v3_data:
+            p = Product(
+                vendor_id=v3.id,
+                category_id=cid,
+                name_en=name_en,
+                name_kn=name_kn,
+                unit=unit,
+                cost_price=cost,
+                selling_price=sell,
+                current_stock=stock,
+                low_stock_threshold=low_th,
+                image_url=img,
+                is_available=True,
+                is_perishable=(cid == cat_dairy.id)  # Only dairy is perishable in a staples shop
+            )
+            db.add(p)
+            db.flush()
+            db.add(InventoryLedger(
+                product_id=p.id,
+                change_qty=stock,
+                transaction_type=InventoryTransactionType.INITIAL,
+                balance_after=stock,
+                notes="Initial inventory setup"
             ))
 
         # 7. Customer Sample Order

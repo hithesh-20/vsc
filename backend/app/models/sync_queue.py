@@ -10,6 +10,12 @@ class SyncEntityType(str, enum.Enum):
     INVENTORY = "INVENTORY"
     UDHAAR = "UDHAAR"
     PRODUCT = "PRODUCT"
+    ORDER_STATUS = "ORDER_STATUS"  # vendor accepted/packed/delivered while offline
+    ORDER_CREATE = "ORDER_CREATE"  # voice order placed while offline
+
+# NOTE: SQLite (demo DB) does not enforce VARCHAR length, so the 12-char
+# "ORDER_STATUS" value is stored fine in the entity_type VARCHAR(9) column.
+# For PostgreSQL, run: ALTER TABLE sync_queue ALTER COLUMN entity_type TYPE varchar(16);
 
 
 class SyncStatus(str, enum.Enum):

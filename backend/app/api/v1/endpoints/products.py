@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_vendor
 from app.models.vendor import Vendor
@@ -26,7 +26,7 @@ def list_vendor_products(
     db: Session = Depends(get_db)
 ):
     """List all products belonging to the logged-in vendor."""
-    query = db.query(Product).filter(Product.vendor_id == vendor.id)
+    query = db.query(Product).options(joinedload(Product.category)).filter(Product.vendor_id == vendor.id)
     if category_id:
         query = query.filter(Product.category_id == category_id)
     products = query.order_by(Product.name_en).all()

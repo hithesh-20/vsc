@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { CustomerApp } from './components/CustomerApp';
 import { VendorMobileApp } from './components/VendorMobileApp';
 import { OnboardingScreens } from './components/OnboardingScreens';
+import { InstallBanner } from './components/InstallBanner';
 import { authService, AppSession, AuthResult } from './services/auth';
 import { vendorSession } from './services/vendorSession';
 
@@ -51,6 +51,9 @@ export const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-slate-950 flex items-center justify-center overflow-hidden select-none relative">
+      {/* PWA install banner (Add to Home Screen) */}
+      <InstallBanner />
+
       {/* Ambient glow */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -58,13 +61,13 @@ export const App: React.FC = () => {
       {/* Phone canvas — the app itself */}
       <div className="relative w-full max-w-[420px] h-screen sm:h-[94vh] sm:max-h-[920px] bg-white sm:rounded-[44px] sm:shadow-[0_40px_120px_-20px_rgba(249,115,22,0.45)] sm:ring-1 sm:ring-slate-800 overflow-hidden flex flex-col">
 
-        {/* App content gate: vendor-role sessions enter the vendor dashboard */}
+        {/* App content gate: vendor-only build — every session lands in the
+            vendor dashboard (existing customer accounts still log in but see
+            the vendor workspace, ready for a future separate customer app) */}
         {!session ? (
           <OnboardingFlow initialLanguage={prefLang} onAuthed={handleAuthed} onLanguage={handleLanguage} />
-        ) : session.role === 'VENDOR' ? (
-          <VendorMobileApp language={session.language} />
         ) : (
-          <CustomerApp session={session} onLogout={handleLogout} onLanguageChange={handleLanguage} />
+          <VendorMobileApp language={session.language} />
         )}
 
         {/* Home indicator */}

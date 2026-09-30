@@ -25,6 +25,8 @@ export interface Product {
   low_stock_threshold: number;
   image_url?: string;
   is_available: boolean;
+  category_name?: string | null;
+  category_name_kn?: string | null;
 }
 
 export interface CartItem {

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ChevronLeft, ShieldCheck, Phone, RefreshCw, Check, Store, ShoppingBag,
-  Sparkles, ArrowRight, User as UserIcon
+  Sparkles, ArrowRight, User as UserIcon, QrCode
 } from 'lucide-react';
 import { INDIAN_LANGUAGES, getAppStrings } from '../services/i18n';
 import { authService, AuthResult } from '../services/auth';
 import { sounds } from '../services/sound';
+import { API_BASE } from '../services/api';
 
 interface OnboardingProps {
   onAuthed: (auth: AuthResult & { language: string }) => void;
@@ -47,6 +48,27 @@ export const OnboardingScreens: React.FC<OnboardingProps> = ({ onAuthed, onLangu
 
   const t = getAppStrings(language);
   const langMeta = INDIAN_LANGUAGES.find(l => l.code === language) || INDIAN_LANGUAGES[1];
+
+  // WiFi onboarding: this PC's address as a QR so a phone can open the app
+  // without typing anything. The backend resolves the LAN IP (a browser
+  // cannot); hidden when the backend only has a loopback address — and on
+  // phones (non-localhost host), where scanning your own screen is pointless
+  // and the vendor should see a clean language list first.
+  const isOnPhone = typeof window !== 'undefined'
+    && window.location.hostname !== 'localhost'
+    && window.location.hostname !== '127.0.0.1';
+  const [lanInfo, setLanInfo] = useState<{ app_url: string } | null>(null);
+  const [qrOpen, setQrOpen] = useState(true);
+  useEffect(() => {
+    if (isOnPhone) return; // phone screens stay clean: no QR card at all
+    let dead = false;
+    fetch(`${API_BASE}/system/lan-info`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (!dead && j?.data?.is_lan) setLanInfo(j.data); })
+      .catch(() => { /* backend down → no QR card */ });
+    return () => { dead = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Splash auto-advance
   useEffect(() => {
@@ -94,7 +116,14 @@ export const OnboardingScreens: React.FC<OnboardingProps> = ({ onAuthed, onLangu
       setStep('otp');
       if (!resend) sounds.playTap();
     } catch (e: any) {
-      setPhoneError(e.message || 'Failed to send OTP');
+      // fetch() throws TypeError on network failure (PC off, WiFi dropped, or
+      // a firewall block) — say that plainly instead of a vague OTP error.
+      const networkDown = e instanceof TypeError || /fetch|network/i.test(String(e?.message));
+      setPhoneError(networkDown
+        ? (language === 'kn'
+            ? 'ಸರ್ವರ್ ಸಂಪರ್ಕ ಕಡಿತವಾಗಿದೆ — ಕಂಪ್ಯೂಟರ್ ಆನ್ ಆಗಿದೆಯೆ ಮತ್ತು ಒಂದೇ WiFi ಎಂದು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ'
+            : 'Cannot reach the server — check the computer is on and both devices are on the same WiFi')
+        : (e.message || 'Failed to send OTP'));
     } finally {
       setSending(false);
     }
@@ -134,7 +163,8 @@ export const OnboardingScreens: React.FC<OnboardingProps> = ({ onAuthed, onLangu
     if (fullName.trim().length < 2) return;
     setCreating(true);
     try {
-      const auth = await authService.completeSignup(requestId, fullName.trim(), 'CUSTOMER', language);
+      // Vendor-only build: every new signup becomes a vendor account
+      const auth = await authService.completeSignup(requestId, fullName.trim(), 'VENDOR', language);
       sounds.playSuccessChime();
       finish(auth);
     } catch (e: any) {
@@ -154,7 +184,7 @@ export const OnboardingScreens: React.FC<OnboardingProps> = ({ onAuthed, onLangu
         </div>
         <h1 className="mt-6 text-3xl font-black tracking-tight">VendorSaathi</h1>
         <p className="mt-1 text-orange-100 text-sm font-semibold">
-          {langMeta.greeting} • Street Shopping App
+          {langMeta.greeting} • Vendor Business App
         </p>
         <div className="mt-10 flex items-center space-x-1.5 text-[11px] font-bold text-orange-100/90">
           <Sparkles className="w-3.5 h-3.5" />
@@ -199,6 +229,36 @@ export const OnboardingScreens: React.FC<OnboardingProps> = ({ onAuthed, onLangu
               </button>
             ))}
           </div>
+
+          {lanInfo && (
+            <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50/60 p-3">
+              <button
+                onClick={() => { sounds.playTap(); setQrOpen(v => !v); }}
+                className="w-full flex items-center justify-between gap-2"
+              >
+                <div className="text-left min-w-0">
+                  <p className="text-[11px] font-black text-slate-900 flex items-center gap-1.5">
+                    <QrCode className="w-4 h-4 text-orange-600" /> Open on your phone — scan, no typing
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 truncate">{lanInfo.app_url}</p>
+                </div>
+                <span className="text-[10px] font-black text-orange-600 whitespace-nowrap">{qrOpen ? 'HIDE' : 'SHOW'}</span>
+              </button>
+              {qrOpen && (
+                <div className="mt-2.5 flex items-center gap-3">
+                  <img
+                    src={`${API_BASE}/system/lan-qr`}
+                    alt="QR code — scan to open VendorSaathi on this WiFi"
+                    className="w-28 h-28 shrink-0 bg-white rounded-xl border border-slate-200 p-1.5"
+                  />
+                  <p className="text-[10px] text-slate-600 font-medium leading-relaxed">
+                    Point the phone's camera here (same WiFi), tap the link it shows, and VendorSaathi opens — ready to log in.
+                    <span className="block mt-1 text-slate-500">ಫೋನ್ ಕ್ಯಾಮೆರಾದಿಂದ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ — ಅಪ್ಲಿಕೇಶನ್ ತೆರೆಯುತ್ತದೆ.</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="p-4 border-t border-slate-100 bg-white">
           <button
@@ -353,7 +413,7 @@ export const OnboardingScreens: React.FC<OnboardingProps> = ({ onAuthed, onLangu
             <ShoppingBag className="w-5 h-5 text-orange-600" />
           </span>
           <div>
-            <p className="text-xs font-black text-slate-800">Customer Account</p>
+            <p className="text-xs font-black text-slate-800">Vendor Account</p>
             <p className="text-[11px] text-slate-400 font-semibold">{maskedPhone} • {langMeta.native}</p>
           </div>
         </div>

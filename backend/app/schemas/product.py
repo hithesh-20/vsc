@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from app.models.product import ProductUnit
 
 
@@ -57,5 +57,23 @@ class ProductResponse(BaseModel):
     image_url: Optional[str] = None
     is_available: bool
     is_perishable: bool
+    category_name: Optional[str] = None
+    category_name_kn: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_category_names(cls, data):
+        """Pull category name off the ORM relationship (from_attributes can't follow it)."""
+        if not isinstance(data, dict) and hasattr(data, "category"):
+            cat = data.category
+            if cat is not None:
+                try:
+                    if getattr(data, "category_name", None) is None:
+                        data.category_name = getattr(cat, "name", None)
+                    if getattr(data, "category_name_kn", None) is None:
+                        data.category_name_kn = getattr(cat, "name_kn", None)
+                except Exception:
+                    pass  # detached instance or missing relationship → leave defaults
+        return data

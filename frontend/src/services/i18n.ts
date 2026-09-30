@@ -1006,6 +1006,9 @@ export const VENDOR_TRANSLATIONS: { [code: string]: any } = {
     emergencySosTitle: "Street Safety & Emergency SOS",
     offlineModeBanner: "Offline Safe Mode • Mutations saved locally",
     onlineModeBanner: "Live Online Sync • Cloud Connected",
+    // Banner state when WiFi is up but the VendorSaathi backend is not.
+    // Only 'en' is complete for this key; other languages fall back to en.
+    serverDownBanner: "🟠 Wi-Fi is fine but the VendorSaathi server is down — your work is saved on this device and will sync when it returns.",
     syncNow: "Sync Now",
     voicePrompts: [
       { text: "Ivattu sales eshtu?", label: "Today's sales revenue" },
@@ -1583,7 +1586,7 @@ export const INDIAN_LANGUAGES: IndianLanguage[] = [
 // fall back to English while keeping their native names on the picker.
 export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
   en: {
-    chooseLanguage: 'Choose Your Language', chooseLanguageSub: 'Shop from street vendors in your language',
+    chooseLanguage: 'Choose Your Language', chooseLanguageSub: 'Run your entire business in your language — sales, udhaar, routes',
     continue: 'Continue', enterPhone: 'Enter your mobile number', phoneSub: 'We will send a one-time code to verify',
     getOtp: 'Send OTP', verifyOtp: 'Verify OTP', otpSub: 'Enter the 6-digit code sent to', resendIn: 'Resend in',
     resend: 'Resend OTP', wrongOtp: 'Incorrect OTP. Please try again.', verifyAndContinue: 'Verify & Continue',
@@ -1603,9 +1606,12 @@ export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
     stepPlaced: 'Placed', stepPacked: 'Packed', stepOutForDelivery: 'Out for delivery', stepDelivered: 'Delivered',
     awaitingAccept: 'Waiting for the vendor to accept your order', liveOffline: 'Reconnecting to live updates…',
     viewDetails: 'View details', hideDetails: 'Hide details', estDelivery: 'Estimated delivery',
+    confirmed: 'Confirmed', activeTab: 'Active', history: 'History', yourActiveOrder: 'Your active order',
+    trackNow: 'Track now', viewCart: 'View cart', itemTotal: 'Item total', freeDelivery: 'FREE', toPay: 'To pay',
+    onlyLeft: 'Only', left: 'left', outOfStock: 'Out of stock', orderFailed: 'Order failed',
   },
   kn: {
-    chooseLanguage: 'ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ', chooseLanguageSub: 'ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಬೀದಿ ವ್ಯಾಪಾರಿಗಳಿಂದ ಖರೀದಿಸಿ',
+    chooseLanguage: 'ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ', chooseLanguageSub: 'ಮಾರಾಟ, ಉಧಾರ, ಮಾರ್ಗಗಳು — ನಿಮ್ಮ ಸಂಪೂರ್ಣ ವ್ಯಾಪಾರವನ್ನು ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ನಡೆಸಿ',
     continue: 'ಮುಂದುವರಿಸಿ', enterPhone: 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ', phoneSub: 'ದೃಢೀಕರಣಕ್ಕಾಗಿ ನಾವು ಒಂದು ಕೋಡ್ ಕಳುಹಿಸುತ್ತೇವೆ',
     getOtp: 'OTP ಕಳುಹಿಸಿ', verifyOtp: 'OTP ದೃಢೀಕರಿಸಿ', otpSub: 'ಕಳುಹಿಸಿದ 6-ಅಂಕಿಯ ಕೋಡ್ ನಮೂದಿಸಿ', resendIn: 'ಮರುಕಳುಹಿಸಿ',
     resend: 'OTP ಮರುಕಳುಹಿಸಿ', wrongOtp: 'ತಪ್ಪು OTP. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', verifyAndContinue: 'ದೃಢೀಕರಿಸಿ & ಮುಂದುವರಿಸಿ',
@@ -1625,9 +1631,12 @@ export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
     stepPlaced: 'ಆರ್ಡರ್ ಆಗಿದೆ', stepPacked: 'ಪ್ಯಾಕ್ ಆಗಿದೆ', stepOutForDelivery: 'ಬಿತರಣೆಗೆ ಹೊರಟಿದೆ', stepDelivered: 'ಬಿತರಣೆಯಾಗಿದೆ',
     awaitingAccept: 'ವ್ಯಾಪಾರಿ ನಿಮ್ಮ ಆರ್ಡರ್ ಸ್ವೀಕರಿಸಲು ಕಾಯುತ್ತಿದ್ದಾರೆ', liveOffline: 'ನೇರ ನವೀಕರಣಗಳಿಗೆ ಮರುಸಂಪರ್ಕ…',
     viewDetails: 'ವಿವರ ನೋಡಿ', hideDetails: 'ವಿವರ ಮರೆಮಾಡಿ', estDelivery: 'ಅಂದಾಜು ಬಿತರಣೆ',
+    confirmed: 'ದೃಢೀಕರಿಸಲಾಗಿದೆ', activeTab: 'ಸಕ್ರಿಯ', history: 'ಇತಿಹಾಸ', yourActiveOrder: 'ನಿಮ್ಮ ಸಕ್ರಿಯ ಆರ್ಡರ್',
+    trackNow: 'ಟ್ರ್ಯಾಕ್ ಮಾಡಿ', viewCart: 'ಬುಟ್ಟಿ ನೋಡಿ', itemTotal: 'ವಸ್ತು ಮೊತ್ತ', freeDelivery: 'ಉಚಿತ', toPay: 'ಪಾವತಿಸಬೇಕಾದ',
+    onlyLeft: 'ಕೇವಲ', left: 'ಉಳಿದಿವೆ', outOfStock: 'ಖಾಲಿ ಆಗಿದೆ', orderFailed: 'ಆರ್ಡರ್ ವಿಫಲವಾಗಿದೆ',
   },
   hi: {
-    chooseLanguage: 'अपनी भाषा चुनें', chooseLanguageSub: 'अपनी भाषा में थेले वालों से खरीदारी करें',
+    chooseLanguage: 'अपनी भाषा चुनें', chooseLanguageSub: 'बिक्री, उधार, रूट — अपना पूरा कारोबार अपनी भाषा में चलाएँ',
     continue: 'जारी रखें', enterPhone: 'मोबाइल नंबर डालें', phoneSub: 'हम एक वन-टाइम कोड भेजेंगे',
     getOtp: 'OTP भेजें', verifyOtp: 'OTP जाँचें', otpSub: 'भेजा गया 6-अंकों का कोड डालें', resendIn: 'दोबारा भेजें',
     resend: 'OTP दोबारा भेजें', wrongOtp: 'गलत OTP. फिर कोशिश करें.', verifyAndContinue: 'जाँचें और आगे बढ़ें',
@@ -1647,6 +1656,9 @@ export const APP_UI_STRINGS: { [code: string]: Record<string, string> } = {
     stepPlaced: 'ऑर्डर हुआ', stepPacked: 'पैक हुआ', stepOutForDelivery: 'डिलीवरी के लिए निकला', stepDelivered: 'पहुँच गया',
     awaitingAccept: 'दुकानदार के ऑर्डर स्वीकार करने का इंतज़ार', liveOffline: 'लाइव अपडेट से फिर जुड़ रहे हैं…',
     viewDetails: 'विवरण देखें', hideDetails: 'विवरण छिपाएँ', estDelivery: 'अनुमानित डिलीवरी',
+    confirmed: 'पुष्ट', activeTab: 'सक्रिय', history: 'इतिहास', yourActiveOrder: 'आपका सक्रिय ऑर्डर',
+    trackNow: 'ट्रैक करें', viewCart: 'कार्ट देखें', itemTotal: 'आइटम कुल', freeDelivery: 'मुफ़्त', toPay: 'देना है',
+    onlyLeft: 'केवल', left: 'बचा है', outOfStock: 'स्टॉक खत्म', orderFailed: 'ऑर्डर विफल',
   },
 };
 

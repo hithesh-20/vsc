@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
@@ -68,7 +68,7 @@ def get_vendor_public_catalog(vendor_id: str, db: Session = Depends(get_db)):
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    products = db.query(Product).filter(
+    products = db.query(Product).options(joinedload(Product.category)).filter(
         Product.vendor_id == vendor.id,
         Product.is_available == True
     ).all()

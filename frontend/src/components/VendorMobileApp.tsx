@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { API_BASE } from '../services/api';
+import { OrderAlertsCard } from './OrderAlertsCard';
+import { SyncAuditScreen } from './SyncAuditScreen';
+import * as offlineSync from '../services/offlineSync';
 import { 
-  Home, Package, ShoppingBag, DollarSign, MoreHorizontal, Mic, MicOff,
+  Home, Package, ShoppingBag, DollarSign, MoreHorizontal, Mic,
   TrendingUp, AlertTriangle, MapPin, CheckCircle, Clock, RefreshCw, Send,
   Plus, Minus, ArrowRight, CloudSun, Phone, Navigation, ShieldCheck, Sparkles,
   CheckCircle2, X, ChevronRight, BarChart2, Radio, Bell, Trash2, CreditCard,
@@ -10,6 +14,8 @@ import {
   Megaphone, ShieldAlert, Wifi, WifiOff, AlertOctagon, Tag
 } from 'lucide-react';
 import { sounds } from '../services/sound';
+import { FloatingVoiceAssistant } from './FloatingVoiceAssistant';
+import { productEmoji, storefrontFilterLabel } from '../services/productEmoji';
 import { 
   ALL_REGIONAL_LANGUAGES, 
   VENDOR_TRANSLATIONS, 
@@ -27,6 +33,7 @@ import {
 import { VillageCartMap } from './VillageCartMap';
 import { StreetMegaphoneModal } from './StreetMegaphoneModal';
 import { EmergencySosModal } from './EmergencySosModal';
+import { DeliveryMap } from './DeliveryMap';
 
 interface VendorMobileAppProps {
   language?: string;
@@ -42,6 +49,51 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
   // Navigation Tabs: 'home' | 'map' | 'pos' | 'products' | 'orders' | 'payments' | 'more'
   const [navTab, setNavTab] = useState<'home' | 'map' | 'pos' | 'products' | 'orders' | 'payments' | 'more'>('home');
   const [moreSubTab, setMoreSubTab] = useState<'fleet' | 'mobility' | 'ai' | 'analytics' | 'weather' | 'profile' | 'sync' | 'academic' | 'settings'>('fleet');
+
+  // Voice-order receipt cards: bumped when the vendor taps TRACK ORDER in the
+  // AI chat — closes the assistant and opens the live Orders tab.
+  const [voiceTrackSignal, setVoiceTrackSignal] = useState(0);
+  useEffect(() => {
+    if (voiceTrackSignal > 0) {
+      setNavTab('orders');
+      loadAllData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceTrackSignal]);
+
+  // Web Push: tapping a push notification focuses/opens the app on the right
+  // screen — new-order pushes → Orders, sync-completion pushes → the synced
+  // timeline on More → Cloud Sync, with the confirmed mutations highlighted.
+  const [syncHighlightIds, setSyncHighlightIds] = useState<string[]>([]);
+  useEffect(() => {
+    const openScreen = (screen: string, confirmed?: string[]) => {
+      if (screen === 'sync') {
+        setNavTab('more');
+        setMoreSubTab('sync');
+        if (confirmed && confirmed.length) setSyncHighlightIds(confirmed);
+      } else {
+        setNavTab('orders');
+        loadAllData();
+      }
+    };
+    const onMsg = (e: MessageEvent) => {
+      const type = (e.data as any)?.type;
+      if (type === 'OPEN_ORDERS') openScreen('orders');
+      if (type === 'OPEN_SYNC') openScreen('sync', (e.data as any).confirmed || []);
+    };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', onMsg);
+      // Cold start from a notification deep link (/?screen=orders|sync&confirmed=id1,id2)
+      const params = new URLSearchParams(window.location.search);
+      const screen = params.get('screen');
+      if (screen === 'orders' || screen === 'sync') {
+        const confirmed = (params.get('confirmed') || '').split(',').filter(Boolean);
+        openScreen(screen, confirmed);
+      }
+      return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   const t = VENDOR_TRANSLATIONS[language] || VENDOR_TRANSLATIONS.kn;
   const currentLangConfig = ALL_REGIONAL_LANGUAGES.find(l => l.code === language) || ALL_REGIONAL_LANGUAGES[0];
@@ -55,14 +107,15 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
   }, [currency]);
 
   // Real-World Village Offline-First Outbox State
+  // (count only — the durable outbox lives in offlineSync service/localStorage)
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-  const [offlineQueue, setOfflineQueue] = useState<any[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('vs_offline_queue') || '[]');
-    } catch {
-      return [];
-    }
-  });
+  // Truth about the BACKEND process. navigator.onLine only knows about the
+  // WiFi adapter — the router can be up while this server process is down,
+  // and the banner would still claim "Live Online Sync". null = unknown
+  // until the first /health ping answers.
+  const [backendUp, setBackendUp] = useState<boolean | null>(null);
+  const [offlineQueue, setOfflineQueue] = useState<any[]>(() => new Array(offlineSync.pendingCount()));
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(() => offlineSync.status().lastSyncedAt);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -75,6 +128,44 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
     };
   }, []);
 
+  // /health ping: the banner's source of truth about the server process.
+  // Polls every 10s while the tab is visible, plus instantly on
+  // online/offline transitions and when the tab regains focus (a phone
+  // returning to the app gets a fresh answer immediately).
+  useEffect(() => {
+    let alive = true;
+    const ping = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/system/health`, { cache: 'no-store' });
+        const body = await r.json().catch(() => null);
+        if (alive) setBackendUp(!!(r.ok && body?.success));
+      } catch {
+        if (alive) setBackendUp(false);
+      }
+    };
+    ping();
+    const iv = window.setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 10000);
+    const onVis = () => { if (document.visibilityState === 'visible') ping(); };
+    const onNet = () => ping();
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('online', onNet);
+    window.addEventListener('offline', onNet);
+    return () => {
+      alive = false;
+      window.clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('online', onNet);
+      window.removeEventListener('offline', onNet);
+    };
+  }, []);
+
+  // Three honest link states for the banner:
+  //   ok             device online AND the backend answers /health
+  //   server-down    device online but the VendorSaathi server is unreachable
+  //   device-offline no network at all (navigator.onLine)
+  const netState: 'ok' | 'server-down' | 'device-offline' =
+    !isOnline ? 'device-offline' : backendUp === false ? 'server-down' : 'ok';
+
   // Real-World Perishable Spoilage Rescue ("Shaam Ki Bikri" / Evening Clearance)
   const [isClearanceActive, setIsClearanceActive] = useState<boolean>(false);
   const [foodWastePreventedKg, setFoodWastePreventedKg] = useState<number>(14.5);
@@ -84,30 +175,67 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
   const [isMegaphoneOpen, setIsMegaphoneOpen] = useState<boolean>(false);
   const [isSosOpen, setIsSosOpen] = useState<boolean>(false);
 
-  const handleForceSync = async () => {
-    sounds.playCashRegister();
-    if (offlineQueue.length > 0) {
+  // Auto-sync service: flushes the offline outbox on reconnect + periodic retry
+  useEffect(() => {
+    offlineSync.setAuthTokenRefresher(async () => {
       try {
-        const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
+        const r = await fetch(`${API_BASE}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone: loginPhone, password: loginPin })
         });
-        const token = (await loginRes.json()).data?.access_token || authToken;
-        await fetch('http://localhost:8000/api/v1/sync/batch-upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ mutations: offlineQueue })
-        });
-      } catch (_) {}
-      setOfflineQueue([]);
-      localStorage.removeItem('vs_offline_queue');
-    }
+        return (await r.json())?.data?.access_token || null;
+      } catch { return null; }
+    });
+    // Background Sync: the SW re-logins with these after the app is closed
+    offlineSync.setLoginCredentials(loginPhone, loginPin);
+    offlineSync.startAutoSync();
+    const off = offlineSync.onSyncStateChange((s) => {
+      setOfflineQueue(new Array(s.pending));
+      setLastSyncedAt(s.lastSyncedAt);
+    });
+    setLastSyncedAt(offlineSync.status().lastSyncedAt);
+    return off;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleForceSync = async () => {
+    sounds.playCashRegister();
+    await offlineSync.flush();
     loadAllData();
   };
+
+  // ------- "✓ Synced" trust toast (offline outbox drain confirmations) -------
+  // One per confirmed batch, auto-dismisses after 5s. A queued SALE made with
+  // no signal, or the SW flushing orders after the app was closed, ends with
+  // a visible green receipt here — the vendor SEES the system kept its word.
+  const [syncToast, setSyncToast] = useState<{ id: number; lines: { head: string; sub?: string }[] } | null>(null);
+  const syncToastTimer = useRef<number | null>(null);
+  useEffect(() => {
+    const off = offlineSync.onSyncComplete((actions) => {
+      if (!actions.length) return;
+      const lines = actions.slice(0, 4).map((a) => {
+        if (a.type === 'ORDER_CREATE') {
+          if (a.orderNumber) {
+            return { head: a.orderNumber, sub: a.total != null ? `₹${a.total} · voice order` : 'voice order' }; 
+          }
+          return { head: a.label || a.kind, sub: 'synced' };
+        }
+        return { head: a.kind, sub: a.label };
+      });
+      setSyncToast({
+        id: Date.now(),
+        lines: actions.length > 4 ? [...lines, { head: `+${actions.length - 4} more synced`, sub: undefined }] : lines,
+      });
+    });
+    return off;
+  }, []);
+  useEffect(() => {
+    if (!syncToast) return;
+    if (syncToastTimer.current) window.clearTimeout(syncToastTimer.current);
+    syncToastTimer.current = window.setTimeout(() => setSyncToast(null), 5000);
+    return () => { if (syncToastTimer.current) window.clearTimeout(syncToastTimer.current); };
+  }, [syncToast]);
 
   const toggleClearanceMode = () => {
     sounds.playVendorBell();
@@ -121,7 +249,52 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
   };
 
   // Auth State
-  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('vs_vendor_token') || 'demo_token');
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('vs_vendor_token'));
+
+  /**
+   * Get a VALID auth token for API calls.
+   *
+   * Uses the logged-in vendor's stored token when it still works; otherwise
+   * (expired/absent — this is a demo device) mints a fresh demo token via the
+   * documented demo login. NEVER fabricates a token string like 'demo_token':
+   * a fake token made every mutating API return 401 while the UI pretended
+   * everything was fine — the exact bug that made the Ask Saathi panel claim
+   * "You're offline" on a working network.
+   */
+  const getValidToken = useCallback(async (): Promise<string> => {
+    const stored = localStorage.getItem('vs_vendor_token') || '';
+    if (stored) {
+      try {
+        const probe = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${stored}` },
+        });
+        if (probe.ok) return stored;
+      } catch { /* network issue below — fall through to demo mint */ }
+    }
+    // Only auto-mint the demo session when this device is actually running
+    // the demo vendor. A real logged-in vendor with an expired token must
+    // re-login — never silently inherit another vendor's data.
+    let isDemoDevice = true;
+    try {
+      const u = JSON.parse(localStorage.getItem('vs_vendor_user') || 'null');
+      isDemoDevice = !u || !u.phone || u.phone === '9876543210';
+    } catch { /* keep demo default */ }
+    if (!isDemoDevice) return '';
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: '9876543210', password: '1234' }),
+      });
+      const minted = (await res.json()).data?.access_token;
+      if (minted) {
+        setAuthToken(minted);
+        localStorage.setItem('vs_vendor_token', minted);
+        return minted;
+      }
+    } catch { /* offline — caller takes its offline path */ }
+    return '';
+  }, []);
   const [vendorUser, setVendorUser] = useState<any>(() => {
     const saved = localStorage.getItem('vs_vendor_user');
     return saved ? JSON.parse(saved) : {
@@ -147,33 +320,6 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
 
   // Voice & Multilingual Interactive AI Assistant State
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceQuery, setVoiceQuery] = useState('');
-  const [customTextInput, setCustomTextInput] = useState('');
-  const [voiceResponseNative, setVoiceResponseNative] = useState('');
-  const [voiceResponseEn, setVoiceResponseEn] = useState('');
-  const [voiceAudioBase64, setVoiceAudioBase64] = useState<string | null>(null);
-  const [voiceStatus, setVoiceStatus] = useState(t.micPrompt);
-  const [voiceMessages, setVoiceMessages] = useState<Array<{
-    id: string;
-    role: 'user' | 'assistant';
-    textNative: string;
-    textEn?: string;
-    audioB64?: string | null;
-    detectedLang?: string;
-    time: string;
-    actionType?: 'sales' | 'stock' | 'map' | 'qr' | 'weather';
-  }>>([
-    {
-      id: 'init-1',
-      role: 'assistant',
-      textNative: 'ನಮಸ್ಕಾರ ರಮೇಶ್ ಅವರೇ! ವೆಂಡರ್‌ಸಾಥಿ AI ಧ್ವನಿ ಸಹಾಯಕ ಸಿದ್ಧವಾಗಿದೆ. ನೀವು ಏನು ತಿಳಿಯಲು ಬಯಸುತ್ತೀರಿ?',
-      textEn: 'Hello Ramesh! VendorSaathi Voice Assistant is ready. What would you like to know or record?',
-      detectedLang: 'kn',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
 
   // Product CRUD Modal
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -211,6 +357,8 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
   ]);
 
   const getLocalizedProductName = (p: any, lang: string) => getProductLocalizedName(p, lang);
+  // Order whose in-app Google Maps navigation is expanded (null = collapsed)
+  const [navOrderId, setNavOrderId] = useState<string | null>(null);
   const [orders, setOrders] = useState<any[]>([
     {
       id: 'ord-vs-101',
@@ -540,36 +688,29 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
 
   const loadAllData = async () => {
     try {
-      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, password: loginPin })
-      });
-      const loginData = await loginRes.json();
-      const token = loginData.data?.access_token || authToken;
-
-      if (!token) return;
+      const token = await getValidToken();
+      if (!token) return; // offline: screens keep their cached state
 
       const headers = { 'Authorization': `Bearer ${token}` };
 
       // 1. Dashboard
-      fetch('http://localhost:8000/api/v1/vendors/dashboard-summary', { headers })
+      fetch(`${API_BASE}/vendors/dashboard-summary`, { headers })
         .then(r => r.json()).then(d => { if (d.data) setDashboard(d.data); });
 
       // 2. Products
-      fetch('http://localhost:8000/api/v1/products', { headers })
+      fetch(`${API_BASE}/products`, { headers })
         .then(r => r.json()).then(d => { if (Array.isArray(d.data) && d.data.length > 0) setProducts(d.data); });
 
       // 3. Orders
-      fetch('http://localhost:8000/api/v1/orders/vendor', { headers })
+      fetch(`${API_BASE}/orders/vendor`, { headers })
         .then(r => r.json()).then(d => { if (Array.isArray(d.data) && d.data.length > 0) setOrders(d.data); });
 
       // 4. Udhaar
-      fetch('http://localhost:8000/api/v1/udhaar', { headers })
+      fetch(`${API_BASE}/udhaar`, { headers })
         .then(r => r.json()).then(d => { if (Array.isArray(d.data?.records) && d.data.records.length > 0) setUdhaarRecords(d.data.records); });
 
       // 5. Mobility & Anti-Clustering
-      fetch('http://localhost:8000/api/v1/mobility/recommendations', { headers })
+      fetch(`${API_BASE}/mobility/recommendations`, { headers })
         .then(r => r.json()).then(d => {
           if (Array.isArray(d.data?.recommendations) && d.data.recommendations.length > 0) {
             setMobilityRecs(d.data.recommendations);
@@ -578,23 +719,23 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
         });
 
       // 6. AI Demand
-      fetch('http://localhost:8000/api/v1/weather/demand-forecast?days=7', { headers })
+      fetch(`${API_BASE}/weather/demand-forecast?days=7`, { headers })
         .then(r => r.json()).then(d => { if (Array.isArray(d.data) && d.data.length > 0) setDemandForecasts(d.data); });
 
       // 7. Weather
-      fetch('http://localhost:8000/api/v1/weather/current?lat=12.9716&lon=77.5946')
+      fetch(`${API_BASE}/weather/current?lat=12.9716&lon=77.5946`)
         .then(r => r.json()).then(d => { if (d.data) setWeatherData(d.data); });
 
       // 8. Spatial-Temporal Fleet Dispatch & Anti-Saturation
-      fetch('http://localhost:8000/api/v1/mobility/fleet-dispatch', { headers })
+      fetch(`${API_BASE}/mobility/fleet-dispatch`, { headers })
         .then(r => r.json()).then(d => { if (d.data) setFleetDispatchData(d.data); });
 
       // 9. Live APMC Mandi Wholesale Intelligence
-      fetch('http://localhost:8000/api/v1/mandi/rates?market=Bengaluru')
+      fetch(`${API_BASE}/mandi/rates?market=Bengaluru`)
         .then(r => r.json()).then(d => { if (d.data) setMandiData(d.data); });
 
       // 10. PM SVANidhi Micro-Credit Scorecard
-      fetch('http://localhost:8000/api/v1/mandi/credit-scorecard', { headers })
+      fetch(`${API_BASE}/mandi/credit-scorecard`, { headers })
         .then(r => r.json()).then(d => { if (d.data) setCreditScorecard(d.data); });
 
       setLastSyncTime(new Date().toLocaleTimeString());
@@ -610,7 +751,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
     setLoginError('');
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: loginPhone, password: loginPin })
@@ -638,9 +779,10 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
         setLoginError('Invalid PIN or Phone Number. Try Demo PIN: 1234');
       }
     } catch (_) {
-      setAuthToken('demo_token');
-      setIsLoginOpen(false);
-      sounds.playSuccessChime();
+      // Network failure (not a wrong PIN — that keeps the form open above).
+      // NEVER fabricate a token: a fake token made every API return 401 while
+      // the UI claimed success. Let the vendor retry when back online.
+      setLoginError('Network error - check your connection and try again.');
     } finally {
       setLoginLoading(false);
     }
@@ -653,299 +795,6 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
     setAuthToken(null);
     setIsLoginOpen(true);
   };
-
-  // Language detection helper for queries in Kannada, Tamil, Hindi, Telugu, etc.
-  const detectScriptLanguage = (text: string, defaultLang: string = 'kn'): string => {
-    if (!text) return defaultLang;
-    // 1. Unicode Range Detection (High Precision)
-    if (/[\u0B80-\u0BFF]/.test(text)) return 'ta'; // Tamil
-    if (/[\u0C80-\u0CFF]/.test(text)) return 'kn'; // Kannada
-    if (/[\u0C00-\u0C7F]/.test(text)) return 'te'; // Telugu
-    if (/[\u0D00-\u0D7F]/.test(text)) return 'ml'; // Malayalam
-    if (/[\u0980-\u09FF]/.test(text)) return 'bn'; // Bengali
-    if (/[\u0A80-\u0AFF]/.test(text)) return 'gu'; // Gujarati
-    if (/[\u0A00-\u0A7F]/.test(text)) return 'pa'; // Punjabi
-    if (/[\u0900-\u097F]/.test(text)) {
-      if (/भाजी|किती|आहे|घ्या|विक्री|नफा|कांदा|बटाटा/.test(text)) return 'mr'; // Marathi
-      return 'hi'; // Hindi
-    }
-    // 2. Transliterated / Phonetic Markers
-    const low = text.toLowerCase();
-    if (/vanakkam|virpanai|laabam|thakkali|evvalavu|kaaikari|urulaikilangu|vengayam|kadan|enna/.test(low)) return 'ta';
-    if (/namaskara|eshtu|yestu|maraata|laabha|tarakari|eerulli|alugadde|dharane|beku/.test(low)) return 'kn';
-    if (/namaskaram|ammakaalu|laabham|enta|kooragayalu|tamata|ullipaya|baaki/.test(low)) return 'te';
-    if (/namaste|kitna|bikri|munafa|tamatar|pyaaz|aalu|udhaar|kya|chahiye/.test(low)) return 'hi';
-    if (/what|today|sales|profit|stock|price|weather|order|orders|hello|help|cart/.test(low)) return 'en';
-
-    return defaultLang;
-  };
-
-  // Multilingual Offline/Fallback Localizer
-  const getMultilingualFallback = (query: string, lang: string) => {
-    const q = query.toLowerCase();
-    let actionType: 'sales' | 'stock' | 'map' | 'qr' | 'weather' | undefined;
-
-    const dict: Record<string, { sales: string; profit: string; stock: string; map: string; qr: string; weather: string; help: string }> = {
-      kn: {
-        sales: `ಇಂದಿನ ಒಟ್ಟು ಮಾರಾಟ ₹${dashboard.today_sales_revenue}, ನಿವ್ವಳ ಲಾಭ ₹${dashboard.today_net_profit}.`,
-        profit: `ಇಂದಿನ ನಿಮ್ಮ ನಿವ್ವಳ ಲಾಭ ₹${dashboard.today_net_profit}. ಮಾರಾಟ ಮೊತ್ತ ₹${dashboard.today_sales_revenue}.`,
-        stock: 'ನಿಮ್ಮ ಗಾಡಿಯಲ್ಲಿ ನಾಟಿ ಟೊಮೇಟೊ 45 ಕೆಜಿ, ಈರುಳ್ಳಿ 60 ಕೆಜಿ ಮತ್ತು ಆಲೂಗಡ್ಡೆ 50 ಕೆಜಿ ದಾಸ್ತಾನು ಲಭ್ಯವಿದೆ.',
-        map: 'ಮುಂದಿನ ಗರಿಷ್ಠ ಲಾಭದ ಸ್ಥಳ: ಬಿಟಿಎಂ 2ನೇ ಹಂತ ವಾಟರ್ ಟ್ಯಾಂಕ್ ವೃತ್ತ. ಅಲ್ಲಿ ಯಾವುದೇ ಸ್ಪರ್ಧಿಗಳಿಲ್ಲ.',
-        qr: 'ಗ್ರಾಹಕರಿಗೆ ತೋರಿಸಲು ನಿಮ್ಮ ಯುಪಿಐ ಕ್ಯೂಆರ್ ಕೋಡ್ ಸಿದ್ಧವಾಗಿದೆ. ಯುಪಿಐ ಐಡಿ: ramesh.veg@okhdfcbank',
-        weather: 'ಇಂದು 28°C ತಾಪಮಾನವಿದ್ದು, ಗಾಡಿ ವ್ಯಾಪಾರಕ್ಕೆ ಅತ್ಯುತ್ತಮ ಹವಾಮಾನವಿದೆ.',
-        help: 'ನಮಸ್ಕಾರ! ನಾನು VendorSaathi AI ಧ್ವನಿ ಸಹಾಯಕ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?'
-      },
-      ta: {
-        sales: `இன்று உங்கள் மொத்த விற்பனை ₹${dashboard.today_sales_revenue}, நிகர லாபம் ₹${dashboard.today_net_profit}.`,
-        profit: `இன்றைய உங்கள் நிகர லாபம் ₹${dashboard.today_net_profit}. மொத்த விற்பனை ₹${dashboard.today_sales_revenue}.`,
-        stock: 'உங்கள் வண்டியில் 45 கிலோ நாட்டு தக்காளி, 60 கிலோ வெங்காயம், 50 கிலோ உருளைக்கிழங்கு இருப்பு உள்ளது.',
-        map: 'அடுத்த சிறந்த விற்பனை பகுதி: பிடிஎம் 2வது நிலை தண்ணீர் தொட்டி சந்திப்பு.',
-        qr: 'வாடிக்கையாளர் ஸ்கேன் செய்ய உங்கள் பாரத் க்யூஆர் கோட் தயார். UPI ID: ramesh.veg@okhdfcbank',
-        weather: 'வானிலை 28°C ஆக உள்ளது, தள்ளுவண்டி வியாபாரத்திற்கு ஏற்ற சாதகமான சூழல்.',
-        help: 'வணக்கம்! நான் VendorSaathi AI குரல் உதவியாளர். நான் உங்களுக்கு எப்படி உதவ முடியும்?'
-      },
-      hi: {
-        sales: `आज की कुल बिक्री ₹${dashboard.today_sales_revenue} और शुद्ध मुनाफा ₹${dashboard.today_net_profit} है।`,
-        profit: `आज का आपका शुद्ध मुनाफा ₹${dashboard.today_net_profit} है। कुल बिक्री ₹${dashboard.today_sales_revenue} रही।`,
-        stock: 'आपके ठेले में 45 किलो देशी टमाटर, 60 किलो प्याज और 50 किलो आलू स्टॉक में उपलब्ध है।',
-        map: 'अगला सबसे अच्छा स्थान: बीटीएम द्वितीय चरण वाटर टैंक चौराहा है।',
-        qr: 'ग्राहकों के भुगतान के लिए आपका भारत क्यूआर तैयार है। UPI ID: ramesh.veg@okhdfcbank',
-        weather: 'वर्तमान तापमान 28°C है और मौसम साफ व व्यापार के अनुकूल है।',
-        help: 'नमस्ते! मैं VendorSaathi AI वॉइस असिस्टेंट हूँ। मैं आपकी क्या मदद कर सकता हूँ?'
-      },
-      te: {
-        sales: `ఈరోజు మొత్తం అమ్మకాలు ₹${dashboard.today_sales_revenue} మరియు నికర లాభం ₹${dashboard.today_net_profit}.`,
-        profit: `ఈరోజు మీ నికర లాభం ₹${dashboard.today_net_profit}. మొత్తం అమ్మకాలు ₹${dashboard.today_sales_revenue}.`,
-        stock: 'మీ బండిలో 45 కిలోల నాటు టమోటాలు, 60 కిలోల ఉల్లిపాయలు, 50 కిలోల బంగాళాదుంపలు స్టాక్ ఉన్నాయి.',
-        map: 'తదుపరి ఉత్తమ వ్యాపార స్థలం: బీటీఎం 2వ స్టేజ్ వాటర్ ట్యాంక్ జంక్షన్.',
-        qr: 'కస్టమర్ చెల్లింపు కోసం మీ భారత్ క్యూఆర్ కోడ్ సిద్ధంగా ఉంది. UPI ID: ramesh.veg@okhdfcbank',
-        weather: 'ప్రస్తుత ఉష్ణోగ్రత 28°C, తోపుడు బండి వ్యాపారానికి అనుకూలమైన వాతావరణం.',
-        help: 'నమస్కారం! నేను VendorSaathi AI వాయిస్ అసిస్టెంట్. నేను మీకు ఎలా సహాయపడగలను?'
-      },
-      en: {
-        sales: `Today's total sales revenue is ₹${dashboard.today_sales_revenue} with net profit of ₹${dashboard.today_net_profit}.`,
-        profit: `Your total net profit today is ₹${dashboard.today_net_profit} from ₹${dashboard.today_sales_revenue} in sales.`,
-        stock: 'You have 45 kg Tomatoes, 60 kg Onions, and 50 kg Potatoes in cart stock.',
-        map: 'Optimal next location is BTM 2nd Stage Water Tank Junction with zero competitor carts.',
-        qr: 'Your BharatQR Standee is ready. UPI ID: ramesh.veg@okhdfcbank',
-        weather: 'Current temperature is 28°C with clear skies, favorable for cart vending.',
-        help: 'Hello! I am VendorSaathi AI Voice Assistant. How can I help your street business?'
-      }
-    };
-
-    const targetPack = dict[lang] || dict.kn;
-    const enPack = dict.en;
-
-    if (/profit|ಲಾಭ|मुनाफा|லாபம்|లాభం|कमाई|nafa/.test(q)) {
-      actionType = 'sales';
-      return { nativeText: targetPack.profit, enText: enPack.profit, actionType };
-    }
-    if (/sales|ಮಾರಾಟ|बिक्री|விற்பனை|అమ్మకాలు|revenue|vikri/.test(q)) {
-      actionType = 'sales';
-      return { nativeText: targetPack.sales, enText: enPack.sales, actionType };
-    }
-    if (/stock|ದಾಸ್ತಾನು|स्टॉक|இருப்பு|స్టాక్|tomato|potato|onion|ಟೊಮೇಟೊ|टमाटर|தக்காளி|ಈರುಳ್ಳಿ|प्याज|வெங்காயம்/.test(q)) {
-      actionType = 'stock';
-      return { nativeText: targetPack.stock, enText: enPack.stock, actionType };
-    }
-    if (/map|route|ದಾರಿ|ನಕ್ಷೆ|कहाँ|எங்கே|రూట్|ಸ್ಥಳ|location/.test(q)) {
-      actionType = 'map';
-      return { nativeText: targetPack.map, enText: enPack.map, actionType };
-    }
-    if (/qr|upi|ಪಾವತಿ|क्रेडिट|payment|soundbox|பணம்|చెల్లింపు/.test(q)) {
-      actionType = 'qr';
-      return { nativeText: targetPack.qr, enText: enPack.qr, actionType };
-    }
-    if (/weather|ಹವಾಮಾನ|मौसम|வானிலை|వాతావరణం|rain|ಮಳೆ|बारिश/.test(q)) {
-      actionType = 'weather';
-      return { nativeText: targetPack.weather, enText: enPack.weather, actionType };
-    }
-
-    return { nativeText: targetPack.help, enText: enPack.help, actionType };
-  };
-
-  // Play Native Speech Audio in Target Language (MP3 base64 or WebSpeech Synthesis)
-  const playNativeVoiceAudio = (audioBase64: string | null, text: string, langCode?: string) => {
-    setIsSpeaking(true);
-    const targetLang = langCode || language || 'kn';
-    const langConfig = ALL_REGIONAL_LANGUAGES.find(l => l.code === targetLang) || currentLangConfig;
-
-    if (audioBase64) {
-      try {
-        const audio = new Audio("data:audio/mp3;base64," + audioBase64);
-        audio.onended = () => setIsSpeaking(false);
-        audio.onerror = () => {
-          speakUtterance(text, langConfig);
-        };
-        audio.play().catch(() => {
-          speakUtterance(text, langConfig);
-        });
-        return;
-      } catch (_) {
-        speakUtterance(text, langConfig);
-        return;
-      }
-    }
-
-    speakUtterance(text, langConfig);
-  };
-
-  const speakUtterance = (text: string, langConfig: any) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = langConfig.langTag;
-      
-      const voices = window.speechSynthesis.getVoices();
-      const matched = voices.find(v => v.lang === langConfig.langTag || v.lang.startsWith(langConfig.code));
-      if (matched) utterance.voice = matched;
-      utterance.rate = 0.95;
-      utterance.pitch = 1.0;
-
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-
-      window.speechSynthesis.speak(utterance);
-    } else {
-      setIsSpeaking(false);
-    }
-  };
-
-  // Web Speech API with Dynamic Regional Language Recognition
-  const startListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      executeVoiceQuery(t.voicePrompts[0].text);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = currentLangConfig.langTag;
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceStatus(`${currentLangConfig.name}: ${t.micPrompt}...`);
-    };
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setVoiceQuery(transcript);
-      executeVoiceQuery(transcript);
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-      setVoiceStatus(t.micPrompt);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  };
-
-  const executeVoiceQuery = async (queryText: string) => {
-    if (!queryText.trim()) return;
-    setVoiceQuery(queryText);
-    setCustomTextInput('');
-    setVoiceStatus('AI Processing Action...');
-
-    // Detect language of query (Kannada, Tamil, Hindi, Telugu, etc.)
-    const detectedInputLang = detectScriptLanguage(queryText, language);
-    const langConfig = ALL_REGIONAL_LANGUAGES.find(l => l.code === detectedInputLang) || currentLangConfig;
-
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const userMsgId = `user-${Date.now()}`;
-    const userMessage: any = {
-      id: userMsgId,
-      role: 'user',
-      textNative: queryText,
-      detectedLang: detectedInputLang,
-      time: timeStr
-    };
-
-    setVoiceMessages(prev => [...prev, userMessage]);
-
-    // Local fallback in case network drops
-    const { nativeText: fallbackNative, enText: fallbackEn, actionType } = getMultilingualFallback(queryText, detectedInputLang);
-
-    try {
-      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, password: loginPin })
-      });
-      const token = (await loginRes.json()).data?.access_token || authToken;
-
-      const res = await fetch('http://localhost:8000/api/v1/voice/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ query_text: queryText, language: detectedInputLang })
-      });
-
-      const json = await res.json();
-      if (json.data) {
-        const detectedResponseLang = json.data.language || detectedInputLang;
-        const nativeResponse = json.data.speech_response_native || json.data.speech_response_kn || fallbackNative;
-        const enResponse = json.data.speech_response_text || fallbackEn;
-        const audioB64 = json.data.audio_base64_response;
-
-        setVoiceResponseNative(nativeResponse);
-        setVoiceResponseEn(enResponse);
-        setVoiceAudioBase64(audioB64);
-        const respLangConfig = ALL_REGIONAL_LANGUAGES.find(l => l.code === detectedResponseLang) || langConfig;
-        setVoiceStatus(`✓ Replied in ${respLangConfig.name}`);
-
-        setVoiceMessages(prev => [
-          ...prev,
-          {
-            id: `ai-${Date.now()}`,
-            role: 'assistant',
-            textNative: nativeResponse,
-            textEn: enResponse,
-            audioB64: audioB64,
-            detectedLang: detectedResponseLang,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            actionType
-          }
-        ]);
-
-        sounds.playSuccessChime();
-        playNativeVoiceAudio(audioB64, detectedResponseLang === 'en' ? enResponse : nativeResponse, detectedResponseLang);
-        loadAllData();
-      } else {
-        throw new Error('API returned empty');
-      }
-    } catch (_) {
-      setVoiceResponseNative(fallbackNative);
-      setVoiceResponseEn(fallbackEn);
-      setVoiceStatus(`✓ Replied in ${langConfig.name}`);
-
-      setVoiceMessages(prev => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          role: 'assistant',
-          textNative: fallbackNative,
-          textEn: fallbackEn,
-          audioB64: null,
-          detectedLang: detectedInputLang,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          actionType
-        }
-      ]);
-
-      sounds.playSuccessChime();
-      playNativeVoiceAudio(null, detectedInputLang === 'en' ? fallbackEn : fallbackNative, detectedInputLang);
-    }
-  };
-
   // Quick POS: Add to Cart
   const handlePosAddToCart = (product: any) => {
     sounds.playCashRegister();
@@ -989,14 +838,10 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
     };
 
     try {
-      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, password: loginPin })
-      });
-      const token = (await loginRes.json()).data?.access_token || authToken;
+      const token = await getValidToken();
+      if (!token) throw new Error('no-auth');
 
-      await fetch('http://localhost:8000/api/v1/sales', {
+      await fetch(`${API_BASE}/sales`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1019,16 +864,12 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
       loadAllData();
     } catch (_) {
       sounds.playPaymentSoundbox(totalAmount, language, currencyConfig.symbol);
-      // Offline mutation queue for rural zones with spotty network
-      const offlineSale = {
-        entity_type: 'SALE',
-        mutation_type: 'CREATE',
-        payload: salePayload,
-        created_at: new Date().toISOString()
-      };
-      const updatedQ = [...offlineQueue, offlineSale];
-      setOfflineQueue(updatedQ);
-      localStorage.setItem('vs_offline_queue', JSON.stringify(updatedQ));
+      // Offline → durable outbox; auto-syncs when network returns (idempotent)
+      offlineSync.enqueue('SALE', salePayload);
+      setProducts(prev => prev.map(p => {
+        const sold = items.find(i => i.product.id === p.id);
+        return sold ? { ...p, current_stock: Math.max(0, p.current_stock - sold.quantity) } : p;
+      }));
 
       setLastBill({
         totalAmount,
@@ -1047,14 +888,10 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, password: loginPin })
-      });
-      const token = (await loginRes.json()).data?.access_token || authToken;
+      const token = await getValidToken();
+      if (!token) throw new Error('no-auth');
 
-      await fetch('http://localhost:8000/api/v1/products', {
+      await fetch(`${API_BASE}/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1078,14 +915,10 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
     const newStock = Math.max(0, p.current_stock + delta);
 
     try {
-      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, password: loginPin })
-      });
-      const token = (await loginRes.json()).data?.access_token || authToken;
+      const token = await getValidToken();
+      if (!token) throw new Error('no-auth');
 
-      await fetch(`http://localhost:8000/api/v1/products/${productId}`, {
+      await fetch(`${API_BASE}/products/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1097,6 +930,13 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
       sounds.playCashRegister();
       loadAllData();
     } catch (_) {
+      // Offline stock correction → outbox (INVENTORY mutation)
+      offlineSync.enqueue('INVENTORY', {
+        product_id: productId,
+        change_qty: newStock - (products.find(p => p.id === productId)?.current_stock ?? 0),
+        transaction_type: 'CORRECTION',
+        notes: 'Offline stock correction',
+      });
       setProducts(prev => prev.map(item => item.id === productId ? { ...item, current_stock: newStock } : item));
     }
   };
@@ -1104,14 +944,10 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
   // Order Lifecycle Update
   const handleUpdateOrderStatus = async (orderId: string, nextStatus: string) => {
     try {
-      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, password: loginPin })
-      });
-      const token = (await loginRes.json()).data?.access_token || authToken;
+      const token = await getValidToken();
+      if (!token) throw new Error('no-auth');
 
-      await fetch(`http://localhost:8000/api/v1/orders/${orderId}/status`, {
+      await fetch(`${API_BASE}/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1123,15 +959,44 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
       sounds.playVendorBell();
       loadAllData();
     } catch (_) {
+      // Offline → queue the status change; server applies it on reconnect
+      // (stale updates can never regress a newer server-side status)
+      offlineSync.enqueue('ORDER_STATUS', { order_id: orderId, status: nextStatus });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
     }
   };
 
   const posTotalAmount = Object.values(posCart).reduce((sum, item) => sum + (item.quantity * item.product.selling_price), 0);
 
+  // POS category filter — prefer real backend category names, fall back to name-based guessing
+  const [posCategory, setPosCategory] = useState<string>('All');
+  const productCategoryLabel = (p: any): string =>
+    p.category_name ? storefrontFilterLabel(p.category_name) : 'Vegetables';
+  const posCategories = ['All', ...Array.from(new Set(products.map(productCategoryLabel)))];
+  const posProducts = posCategory === 'All' ? products : products.filter(p => productCategoryLabel(p) === posCategory);
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white text-slate-900 relative">
       
+      {/* ---------- "✓ Synced" trust toast (offline outbox confirmations) ---------- */}
+      {syncToast && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[60] animate-[fadeInOut_5s_ease-in-out_forwards] w-[90%] max-w-xs">
+          <div className="rounded-2xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-white shadow-xl shadow-emerald-500/10 overflow-hidden">
+            <div className="px-3.5 py-2 bg-emerald-600 text-white flex items-center gap-1.5 text-[11px] font-black tracking-wide">
+              <CheckCircle2 className="w-3.5 h-3.5" /> SYNCED TO SERVER
+            </div>
+            <div className="px-3.5 py-2 space-y-1">
+              {syncToast.lines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between text-[11px]">
+                  <span className="font-black text-slate-800">{l.head}</span>
+                  {l.sub && <span className="font-bold text-emerald-700">{l.sub}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. TOP MOBILE HEADER WITH REAL GPS STATUS, PROFILE BADGE & LOGIN TRIGGER */}
       <div className="bg-white px-4 py-3 border-b border-orange-100 flex-shrink-0 z-30 space-y-2 shadow-sm">
         <div className="flex items-center justify-between">
@@ -1203,22 +1068,32 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
 
         {/* Real-World Zero-Connectivity & Village Offline Outbox Banner */}
         <div className={`flex items-center justify-between px-3.5 py-1.5 rounded-xl border text-[11px] font-bold ${
-          isOnline
+          netState === 'ok'
             ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
             : 'bg-rose-950/40 border-rose-500/40 text-rose-300 animate-pulse'
         }`}>
           <div className="flex items-center space-x-2">
-            {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-400" /> : <WifiOff className="w-3.5 h-3.5 text-rose-400" />}
+            {netState === 'ok'
+              ? <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+              : <WifiOff className="w-3.5 h-3.5 text-rose-400" />}
             <span>
-              {isOnline ? (t.onlineModeBanner || '🟢 Live Online Sync Active') : (t.offlineModeBanner || '🔴 Offline Safe Mode (Village Signal Drop)')}
+              {netState === 'ok'
+                ? (t.onlineModeBanner || '🟢 Live Online Sync Active')
+                : netState === 'server-down'
+                  ? (t.serverDownBanner || '🟠 Wi-Fi fine · VendorSaathi server down — data saved locally, retrying…')
+                  : (t.offlineModeBanner || '🔴 Offline Safe Mode (Village Signal Drop)')}
             </span>
           </div>
 
           <div className="flex items-center space-x-2">
             {offlineQueue.length > 0 && (
-              <span className="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full text-[10px] font-black border border-amber-500/30">
+              <button
+                onClick={() => { setNavTab('more'); setMoreSubTab('sync'); }}
+                className="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full text-[10px] font-black border border-amber-500/30 hover:bg-amber-500/30 transition"
+                title="Review queued offline actions"
+              >
                 ⚡ {offlineQueue.length} Queued
-              </span>
+              </button>
             )}
             <button
               onClick={handleForceSync}
@@ -1479,7 +1354,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 block font-bold">Est. Sales Surge</span>
-                    <strong className="text-amber-400">{formatLocalizedCurrency(mobilityRecs[0].estimated_turnover_inr, language)}</strong>
+                    <strong className="text-amber-400">{formatLocalizedCurrency(Number.isFinite(mobilityRecs[0].estimated_turnover_inr) ? mobilityRecs[0].estimated_turnover_inr : 0, language)}</strong>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 block font-bold">Carry High Demand</span>
@@ -1493,7 +1368,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                     sounds.playVendorBell();
                     const destLat = mobilityRecs[0].latitude || 12.9820;
                     const destLon = mobilityRecs[0].longitude || 77.6100;
-                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=${destLat},${destLon}&travelmode=driving`;
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=${destLat},${destLon}&travelmode=two_wheeler`;
                     window.open(mapsUrl, '_blank');
                   }}
                   className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center space-x-2"
@@ -1628,7 +1503,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                     sounds.playVendorBell();
                     const destLat = mobilityRecs[0]?.latitude || 12.9820;
                     const destLon = mobilityRecs[0]?.longitude || 77.6100;
-                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=${destLat},${destLon}&travelmode=driving`;
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=${destLat},${destLon}&travelmode=two_wheeler`;
                     window.open(mapsUrl, '_blank');
                   }}
                   className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-md flex items-center space-x-1 transition active:scale-95"
@@ -1690,16 +1565,28 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
               </button>
             </div>
 
+            {/* Category filter chips (Veg / Spices / Staples / Dairy ...) */}
+            <div className="flex space-x-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {posCategories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => { setPosCategory(cat); sounds.playTap(); }}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-black whitespace-nowrap border transition active:scale-95 ${
+                    posCategory === cat
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                      : 'bg-white text-slate-500 border-orange-100'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
             {/* Produce Tap Grid with Emojis & Interactive Steppers */}
             <div className="grid grid-cols-2 gap-2.5">
-              {products.map((p) => {
+              {posProducts.map((p) => {
                 const inCart = posCart[p.id]?.quantity || 0;
-                const emoji = (p.name_en.toLowerCase().includes('tomato') ? '🍅' :
-                  p.name_en.toLowerCase().includes('onion') ? '🧅' :
-                  p.name_en.toLowerCase().includes('potato') ? '🥔' :
-                  p.name_en.toLowerCase().includes('chili') || p.name_en.toLowerCase().includes('chilli') ? '🌶️' :
-                  p.name_en.toLowerCase().includes('coriander') ? '🌿' :
-                  p.name_en.toLowerCase().includes('apple') ? '🍎' : '🥬');
+                const emoji = productEmoji(p.name_en);
                 const marginPercent = Math.round(((p.selling_price - (p.cost_price || p.selling_price * 0.7)) / p.selling_price) * 100);
 
                 return (
@@ -2003,6 +1890,20 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                     </div>
                   </div>
 
+                  {/* Real Google Maps delivery navigation (route preview + turn-by-turn) */}
+                  {navOrderId === ord.id && (
+                    <DeliveryMap
+                      origin={vendorLocation}
+                      target={{
+                        lat: ord.delivery_lat,
+                        lon: ord.delivery_lon,
+                        address: ord.delivery_address,
+                        customerName: ord.customer_name,
+                      }}
+                      language={language}
+                    />
+                  )}
+
                   {/* Order Items Basket */}
                   <div className="p-3 bg-orange-50/60 rounded-2xl text-xs space-y-1.5 border border-orange-100">
                     {ord.items?.map((item: any, i: number) => (
@@ -2030,10 +1931,9 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                     <button
                       onClick={() => {
                         sounds.playVendorBell();
-                        const url = `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=12.9820,77.6100&travelmode=driving`;
-                        window.open(url, '_blank');
+                        setNavOrderId(navOrderId === ord.id ? null : ord.id);
                       }}
-                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-300 rounded-xl text-xs font-black text-blue-800 flex items-center space-x-1 transition shadow-sm"
+                      className={`px-3 py-2 rounded-xl text-xs font-black flex items-center space-x-1 transition shadow-sm border ${navOrderId === ord.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-800'}`}
                     >
                       <Navigation className="w-3.5 h-3.5" />
                       <span>Maps</span>
@@ -2208,13 +2108,25 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                 <button
                   key={s.id}
                   onClick={() => setMoreSubTab(s.id as any)}
-                  className={`px-3 py-2 rounded-xl whitespace-nowrap transition ${
+                  className={`relative px-3 py-2 rounded-xl whitespace-nowrap transition ${
                     moreSubTab === s.id
                       ? 'bg-orange-600 text-white shadow-md'
                       : 'text-slate-500 hover:text-white'
                   }`}
                 >
                   {s.label}
+                  {/* Sync health at a glance: pending count + last-synced time */}
+                  {s.id === 'sync' && (offlineQueue.length > 0 || lastSyncedAt) && (
+                    <span className={`absolute -top-1.5 -right-1 text-[9px] font-black px-1.5 py-0.5 rounded-full border shadow-sm ${
+                      offlineQueue.length > 0
+                        ? 'bg-amber-400 text-amber-950 border-amber-500 animate-pulse'
+                        : 'bg-emerald-500 text-white border-emerald-600'
+                    }`}>
+                      {offlineQueue.length > 0
+                        ? `⚡${offlineQueue.length}`
+                        : `✓ ${new Date(lastSyncedAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -2372,7 +2284,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                               {slot.optimized_route_recommendation.strategy_1_reroute.reason}
                             </p>
                             <a
-                              href="https://www.google.com/maps/dir/?api=1&origin=12.9716,77.5946&destination=12.9121,77.6446&travelmode=driving"
+                              href="https://www.google.com/maps/dir/?api=1&origin=12.9716,77.5946&destination=12.9121,77.6446&travelmode=two_wheeler"
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex items-center space-x-1 text-[10px] text-blue-400 font-bold hover:underline pt-0.5"
@@ -2462,7 +2374,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                     <button
                       onClick={() => {
                         sounds.playVendorBell();
-                        const mapsUrl = spot.google_maps_url || `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=${spot.latitude},${spot.longitude}&travelmode=driving`;
+                        const mapsUrl = spot.google_maps_url || `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=${spot.latitude},${spot.longitude}&travelmode=two_wheeler`;
                         window.open(mapsUrl, '_blank');
                       }}
                       className="w-full py-2.5 bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/50 hover:to-indigo-600/50 border border-blue-500/40 text-blue-300 hover:text-white font-black text-xs rounded-xl shadow transition active:scale-95 flex items-center justify-center space-x-1.5"
@@ -2725,7 +2637,9 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
             {/* 6. Offline Sync & Cloud Backup Sub-Tab */}
             {moreSubTab === 'sync' && (
               <div className="space-y-3">
-                <h4 className="text-xs font-black uppercase text-slate-500">📒 {t.offlineActive}</h4>
+                <h4 className="text-xs font-black uppercase text-slate-500">📒 Offline Sync Audit</h4>
+                {/* Live audit: queued/failed actions with retry + server verdicts */}
+                <SyncAuditScreen highlightIds={syncHighlightIds} onHighlightDone={() => setSyncHighlightIds([])} />
                 <div className="bg-white p-5 rounded-3xl border border-orange-200 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2.5">
@@ -2742,7 +2656,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
                   <button
                     onClick={() => {
                       sounds.playSuccessChime();
-                      loadAllData();
+                      handleForceSync();
                     }}
                     className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-2xl transition shadow-lg flex items-center justify-center space-x-2"
                   >
@@ -2778,6 +2692,8 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
             {moreSubTab === 'settings' && (
               <div className="space-y-3">
                 <h4 className="text-xs font-black uppercase text-slate-500">⚙️ Settings & Audio Preferences</h4>
+                {/* Web Push: new-order alerts even when the app is closed */}
+                <OrderAlertsCard language={language} />
                 <div className="bg-white p-5 rounded-3xl border border-orange-200 shadow-sm space-y-4 text-xs">
                   <div className="flex justify-between items-center">
                     <div>
@@ -2872,12 +2788,13 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
           <span className="text-[10px] font-bold mt-0.5">{t.tabPos}</span>
         </button>
 
-        {/* Center Raised Voice Mic Button */}
+        {/* Center Raised Voice Mic Button — opens the SAME Ask Saathi panel
+            as the floating bubble (one assistant, shared history/state) */}
         <div className="flex flex-col items-center -mt-5">
           <button
             onClick={() => setIsVoiceOpen(true)}
             aria-label={t.voiceModalTitle}
-            className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/40 hover:scale-105 active:scale-90 transition-all flex items-center justify-center ring-4 ring-white"
+            className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/40 hover:scale-105 active:scale-90 transition-all flex items-center justify-center ring-4 ring-white ${isVoiceOpen ? 'ring-2 ring-orange-300 opacity-60' : ''}`}
             title="Voice Assistant"
           >
             <Mic className="w-6 h-6 sm:w-7 sm:h-7 animate-pulse" />
@@ -2913,306 +2830,6 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
 
       </div>
 
-      {/* 4. DEDICATED HYPER-INTERACTIVE MULTILINGUAL VOICE & CONVERSATIONAL AI COMPANION */}
-      {isVoiceOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white border border-orange-200 shadow-2xl text-slate-900 w-full max-w-md rounded-3xl shadow-2xl p-5 space-y-3.5 flex flex-col h-[85vh] max-h-[700px] animate-in zoom-in-95">
-            
-            {/* Header with Language & Live Voice Status */}
-            <div className="flex items-center justify-between pb-2 border-b border-orange-100 flex-shrink-0">
-              <div className="flex items-center space-x-2 text-xs font-black text-orange-400">
-                <span className="p-1.5 rounded-xl bg-orange-500/20 text-orange-400">
-                  <Mic className="w-4 h-4" />
-                </span>
-                <div>
-                  <div className="flex items-center space-x-1.5">
-                    <span>{currentLangConfig.flag} {t.voiceModalTitle}</span>
-                    
-                  </div>
-                  <span className="text-[10px] text-emerald-400 font-bold flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span>{isSpeaking ? '🔊 AI Speaking...' : isListening ? '🎙️ Listening to Voice...' : '🟢 Interactive Voice & Text Active'}</span>
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={() => {
-                    setVoiceMessages([
-                      {
-                        id: `init-${Date.now()}`,
-                        role: 'assistant',
-                        textNative: 'ನಮಸ್ಕಾರ! ಇತಿಹಾಸವನ್ನು ತೆರವುಗೊಳಿಸಲಾಗಿದೆ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?',
-                        textEn: 'Hello! Chat history cleared. How can I help your street business?',
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      }
-                    ]);
-                    sounds.playVendorBell();
-                  }}
-                  className="px-2 py-1 bg-orange-100 hover:bg-orange-200 text-[10px] text-slate-500 hover:text-white rounded-lg transition font-bold"
-                  title="Clear Chat"
-                >
-                  Clear
-                </button>
-                <button onClick={() => setIsVoiceOpen(false)} className="p-1.5 rounded-full text-slate-500 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* LIVE ANIMATED GEMINI/SIRI-STYLE EQUALIZER WAVEFORM */}
-            {(isListening || isSpeaking) && (
-              <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/15 to-orange-500/10 p-3 rounded-2xl border border-orange-300 flex items-center justify-between flex-shrink-0 animate-in fade-in shadow-inner">
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-1 h-7 px-2 bg-white rounded-xl border border-orange-200 shadow-sm">
-                    <span className="w-1 bg-orange-500 rounded-full animate-audio-wave-1" />
-                    <span className="w-1 bg-amber-500 rounded-full animate-audio-wave-2" />
-                    <span className="w-1 bg-rose-500 rounded-full animate-audio-wave-3" />
-                    <span className="w-1 bg-emerald-500 rounded-full animate-audio-wave-4" />
-                    <span className="w-1 bg-blue-500 rounded-full animate-audio-wave-5" />
-                    <span className="w-1 bg-purple-500 rounded-full animate-audio-wave-2" />
-                    <span className="w-1 bg-orange-500 rounded-full animate-audio-wave-1" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-black text-orange-950 block leading-tight">
-                      {isListening ? `${currentLangConfig.name}: ${t.micPrompt}...` : 'AI Saathi Audio Synthesizing...'}
-                    </span>
-                    <span className="text-[10px] text-orange-600 font-semibold">
-                      {isListening ? 'Speak in any Indic language naturally' : 'Voice synthesized in detected dialect'}
-                    </span>
-                  </div>
-                </div>
-                {isSpeaking && (
-                  <button
-                    onClick={() => {
-                      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                      setIsSpeaking(false);
-                    }}
-                    className="text-[10px] bg-rose-500 hover:bg-rose-600 text-white px-2.5 py-1 rounded-xl font-black shadow-sm transition active:scale-95"
-                  >
-                    Stop Audio
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* SCROLLABLE INTERACTIVE CHAT STREAM */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-left scrollbar-thin">
-              {voiceMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in`}
-                >
-                  <div className="flex items-center space-x-1.5 mb-1 px-1">
-                    <span className="text-[10px] font-black text-slate-500">
-                      {msg.role === 'user' ? '🧑‍🌾 You (Vendor)' : '🤖 AI Saathi Assistant'}
-                    </span>
-                    {msg.detectedLang && (
-                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                        {ALL_REGIONAL_LANGUAGES.find(l => l.code === msg.detectedLang)?.name || msg.detectedLang}
-                      </span>
-                    )}
-                    <span className="text-[9px] text-slate-500">{msg.time}</span>
-                  </div>
-
-                  <div
-                    className={`p-3.5 rounded-2xl max-w-[85%] text-xs space-y-2 shadow-lg ${
-                      msg.role === 'user'
-                        ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-tr-none font-bold'
-                        : 'bg-white border border-orange-200 text-slate-900 rounded-tl-none font-medium shadow-sm'
-                    }`}
-                  >
-                    <div className="text-sm font-black leading-snug">{msg.textNative}</div>
-
-
-                    {/* Interactive Action Shortcuts & Voice Replay for Assistant Messages */}
-                    {msg.role === 'assistant' && (
-                      <div className="pt-1.5 flex flex-wrap items-center gap-1.5 border-t border-orange-100">
-                        <button
-                          onClick={() => playNativeVoiceAudio(
-                            msg.audioB64 || null,
-                            (msg.detectedLang || language) === 'en' ? (msg.textEn || msg.textNative) : msg.textNative,
-                            msg.detectedLang || language
-                          )}
-                          className="px-2 py-1 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 text-[10px] font-black rounded-lg flex items-center space-x-1 transition"
-                        >
-                          <Volume2 className="w-3 h-3" />
-                          <span>Replay Audio ({ALL_REGIONAL_LANGUAGES.find(l => l.code === (msg.detectedLang || language))?.name || 'Native'})</span>
-                        </button>
-
-                        {/* In-App Interactive Direct Action Buttons */}
-                        {msg.actionType === 'sales' && (
-                          <button
-                            onClick={() => {
-                              setNavTab('more');
-                              setMoreSubTab('analytics');
-                              setIsVoiceOpen(false);
-                            }}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition"
-                          >
-                            📊 View Full Sales Analytics ➔
-                          </button>
-                        )}
-                        {msg.actionType === 'stock' && (
-                          <button
-                            onClick={() => {
-                              setNavTab('products');
-                              setIsVoiceOpen(false);
-                            }}
-                            className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black rounded-lg transition"
-                          >
-                            📦 Open Cart Stock ➔
-                          </button>
-                        )}
-                        {msg.actionType === 'map' && (
-                          <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            <button
-                              onClick={() => {
-                                setNavTab('map');
-                                setIsVoiceOpen(false);
-                              }}
-                              className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition"
-                            >
-                              🗺️ View Live Map ➔
-                            </button>
-                            <button
-                              onClick={() => {
-                                const destLat = mobilityRecs[0]?.latitude || 12.9820;
-                                const destLon = mobilityRecs[0]?.longitude || 77.6100;
-                                const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${vendorLocation[0]},${vendorLocation[1]}&destination=${destLat},${destLon}&travelmode=driving`;
-                                window.open(mapsUrl, '_blank');
-                              }}
-                              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black rounded-lg transition flex items-center space-x-1"
-                            >
-                              <Navigation className="w-3 h-3" />
-                              <span>🚀 Start Google Maps Navigation ➔</span>
-                            </button>
-                          </div>
-                        )}
-                        {msg.actionType === 'qr' && (
-                          <button
-                            onClick={() => {
-                              setIsQrModalOpen(true);
-                              setIsVoiceOpen(false);
-                            }}
-                            className="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black rounded-lg transition"
-                          >
-                            📱 Show BharatQR Standee ➔
-                          </button>
-                        )}
-                        {msg.actionType === 'weather' && (
-                          <button
-                            onClick={() => {
-                              setNavTab('more');
-                              setMoreSubTab('weather');
-                              setIsVoiceOpen(false);
-                            }}
-                            className="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-black rounded-lg transition"
-                          >
-                            🌦️ View Weather Advisory ➔
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* QUICK MULTILINGUAL TESTING CHIPS (KANNADA, TAMIL, HINDI, TELUGU, ETC.) */}
-            <div className="space-y-1 flex-shrink-0 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center space-x-1">
-                  <span>🎙️ Speak / Test in Language:</span>
-                </span>
-                <span className="text-[9px] text-slate-500 font-bold">Auto-matches response voice</span>
-              </div>
-              <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {[
-                  { code: 'kn', label: 'ಕನ್ನಡ', prompt: 'ಇಂದಿನ ಒಟ್ಟು ಮಾರಾಟ ಮತ್ತು ಲಾಭ ಎಷ್ಟು?' },
-                  { code: 'ta', label: 'தமிழ்', prompt: 'இன்றைய விற்பனை மற்றும் லாபம் எவ்வளவு?' },
-                  { code: 'hi', label: 'हिन्दी', prompt: 'आज की कुल बिक्री और मुनाफा कितना है?' },
-                  { code: 'te', label: 'తెలుగు', prompt: 'ఈరోజు మొత్తం అమ్మకాలు మరియు లాభం ఎంత?' },
-                  { code: 'mr', label: 'मराठी', prompt: 'आजची एकूण विक्री आणि नफा किती आहे?' },
-                  { code: 'en', label: 'English', prompt: 'What is today total sales and profit?' }
-                ].map(item => (
-                  <button
-                    key={item.code}
-                    onClick={() => executeVoiceQuery(item.prompt)}
-                    className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl text-orange-900 hover:text-orange-950 font-black text-[11px] whitespace-nowrap transition active:scale-95 flex-shrink-0 shadow-sm"
-                  >
-                    🇮🇳 {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* QUICK SUGGESTION PROMPT CHIPS */}
-            <div className="space-y-1 flex-shrink-0 text-left">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                💡 Quick Voice & Tap Actions:
-              </span>
-              <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {t.voicePrompts.map((cmd: any, idx: number) => (
-                  <button
-                    key={idx}
-                    onClick={() => executeVoiceQuery(cmd.text)}
-                    className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl text-orange-900 font-bold text-[11px] whitespace-nowrap transition active:scale-95 flex-shrink-0 shadow-sm"
-                  >
-                    "{cmd.label}"
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* BOTTOM TALK & TYPE INPUT COMPOSER */}
-            <div className="p-2 bg-orange-50/80 border border-orange-200 rounded-2xl flex items-center space-x-2 flex-shrink-0">
-              <button
-                onClick={startListening}
-                className={`p-2.5 rounded-xl flex items-center justify-center transition-all ${
-                  isListening
-                    ? 'bg-rose-600 text-white animate-pulse ring-4 ring-rose-500/30'
-                    : 'bg-orange-600 hover:bg-orange-500 text-white active:scale-95'
-                }`}
-                title="Tap Mic to Speak"
-              >
-                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </button>
-
-              <input
-                type="text"
-                value={customTextInput}
-                onChange={(e) => setCustomTextInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && customTextInput.trim()) {
-                    executeVoiceQuery(customTextInput);
-                  }
-                }}
-                placeholder={t.typeQueryPlaceholder}
-                className="flex-1 bg-transparent px-2 py-1 text-xs text-white placeholder-slate-500 outline-none font-bold"
-              />
-
-              <button
-                onClick={() => {
-                  if (customTextInput.trim()) {
-                    executeVoiceQuery(customTextInput);
-                  }
-                }}
-                disabled={!customTextInput.trim()}
-                className={`px-3 py-2 rounded-xl text-white font-black text-xs flex items-center space-x-1 transition ${
-                  customTextInput.trim()
-                    ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 active:scale-95 shadow-md'
-                    : 'bg-orange-50 text-slate-500 cursor-not-allowed'
-                }`}
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send</span>
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {/* 5. VENDOR AUTHENTICATION LOGIN MODAL */}
       {isLoginOpen && (
@@ -3533,6 +3150,17 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
         vendorLocation={vendorLocation}
         vendorUser={vendorUser}
         language={language}
+      />
+
+      {/* Universal AI voice assistant — ONE panel, two ways in: the floating
+          "🎙️ Ask Saathi AI" bubble (bottom-right) and the raised Voice mic in
+          the bottom bar. Same chat, same receipts, same wake word, same state. */}
+      <FloatingVoiceAssistant
+        language={language}
+        sessionToken={authToken || undefined}
+        onTrackOrder={() => setVoiceTrackSignal(Date.now())}
+        open={isVoiceOpen || undefined}
+        onOpenChange={(v) => setIsVoiceOpen(v)}
       />
 
     </div>

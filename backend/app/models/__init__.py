@@ -11,6 +11,7 @@ from app.models.demand import DemandPrediction
 from app.models.loyalty import LoyaltyLedger, LoyaltyActionType
 from app.models.sync_queue import SyncQueue, SyncEntityType, SyncStatus
 from app.models.otp import OtpChallenge, OtpPurpose
+from app.models.push_subscription import PushSubscription
 
 __all__ = [
     "User",
@@ -42,4 +43,5 @@ __all__ = [
     "SyncStatus",
     "OtpChallenge",
     "OtpPurpose",
+    "PushSubscription",
 ]

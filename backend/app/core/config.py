@@ -14,7 +14,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
     ALGORITHM: str = "HS256"
 
-    # Database connection URL - anchored to backend/vendorsathi.db
+    # Database connection URL.
+    # Default: SQLite file anchored to backend/vendorsathi.db (zero-setup demo).
+    # MySQL Workbench/server: create backend/.env with a line like
+    #   DATABASE_URL=mysql+pymysql://root:YOUR_PASSWORD@localhost:3306/vendorsathi?charset=utf8mb4
+    # (requires `pip install pymysql` — see docs/MYSQL_WORKBENCH_SETUP.md)
     DATABASE_URL: str = f"sqlite:///{DEFAULT_DB_PATH}"
 
     # CORS
@@ -28,6 +32,10 @@ class Settings(BaseSettings):
 
     # Operational Mode
     DEMO_MODE: bool = True
+
+    # Port the frontend dev server runs on (used for the login-screen QR that
+    # encodes the phone URL, e.g. http://<lan-ip>:3000)
+    FRONTEND_PORT: int = 3000
 
     # External APIs
     OPENWEATHER_API_KEY: str = ""

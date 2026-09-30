@@ -62,3 +62,6 @@ desktop.ini
 .idea/
 *.log
 *.tmp
+
+# Dev TLS certificates (LAN phone testing) — private keys, never commit
+backend/certs/

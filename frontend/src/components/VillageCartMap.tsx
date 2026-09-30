@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { API_BASE } from '../services/api';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { Vendor } from '../types';
@@ -113,7 +114,7 @@ export const VillageCartMap: React.FC<VillageCartMapProps> = ({
 
   // Fetch AI Location Prediction from Backend
   useEffect(() => {
-    fetch(`http://localhost:8000/api/v1/mobility/predict-location?lat=${userLocation[0]}&lon=${userLocation[1]}`)
+    fetch(`${API_BASE}/mobility/predict-location?lat=${userLocation[0]}&lon=${userLocation[1]}`)
       .then(r => r.json())
       .then(d => {
         if (d.data?.predicted_next_location) {

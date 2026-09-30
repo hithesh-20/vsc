@@ -147,6 +147,19 @@ async def place_order(
         "customer_name": customer.full_name
     })
 
+    # Web Push alert to the vendor's registered devices (works even when the
+    # app is closed). Never fails the order.
+    try:
+        from app.services.push_service import notify_user, new_order_payload
+        notify_user(db, vendor.user_id, new_order_payload(
+            order_number=order.order_number,
+            customer_name=customer.full_name,
+            total=order.total_amount,
+            order_id=order.id,
+        ))
+    except Exception:
+        pass
+
     return APIResponse(message="Order placed successfully", data=OrderResponse.model_validate(order))
 
 

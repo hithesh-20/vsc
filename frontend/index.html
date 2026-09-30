@@ -2,9 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/jpeg" href="/vendorsathi_logo.jpg" />
+    <link rel="icon" type="image/png" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>VendorSaathi — AI Voice Commerce & Intelligent Mobility Platform</title>
+    <title>VendorSaathi Vendor App — AI Voice Commerce & Delivery Navigation</title>
+
+    <!-- PWA: installable app (Add to Home Screen) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#f97316" />
+    <meta name="description" content="AI voice commerce for street vendors — hands-free Saathi assistant, POS, stock, udhaar, live orders and Maps navigation." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="VendorSaathi" />
     
     <!-- Google Fonts: Plus Jakarta Sans & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,6 +25,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
     <style>
+      /* PWA standalone: keep content clear of the status bar notch */
+      @media all and (display-mode: standalone) {
+        body { padding-top: env(safe-area-inset-top); }
+      }
       body {
         font-family: 'Plus Jakarta Sans', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif;
         -webkit-font-smoothing: antialiased;

@@ -6,7 +6,7 @@
 ## 🌟 Executive Summary & Innovation Highlights
 **VendorSaathi** is a production-grade, globally deployable full-stack ecosystem designed specifically for rural, village, and roadside mobile vendors (selling on push carts, mopeds, bicycles, and mini-trucks).
 
-1. **🎙️ Real-Time Kannada/English Voice Assistant**: Hands-free voice commerce with Web Speech mic recording and regional TTS audio synthesis.
+1. **🎙️ Universal "Ask Saathi AI" Voice Assistant**: One conversational AI for vendors *and* customers across 11 Indic languages (Kannada, Hindi, Tamil, Telugu, Marathi, Bengali, Gujarati, Punjabi, Malayalam + English). Speak naturally — *"Add 5 kg tomatoes"*, *"How much Udhaar does Ravi have?"*, *"ನನಗೆ 1 ಕೆಜಿ ಟೊಮೇಟೊ ಬೇಕು"* — and it detects the language, queries real data or performs the action (money-changing actions require spoken yes/no confirmation), and replies with spoken audio + localized numerals. Works offline by replaying the last-synced cached answers, clearly marked "offline — last synced".
 2. **📍 Live Village GPS Radar & Route Tracker**: Real-time GPS detection, animated roadside mobile cart movement across village lanes, and traditional arrival bell chime (*"ತರಕಾರಿ ಬಂತು ತರಕಾರಿ!"*).
 3. **🧠 AI-Driven Demand Forecasting & Perishable Protection**: Random Forest & XGBoost time-series modeling incorporating weather, day-of-week, and historical sales velocity.
 4. **📍 Intelligent Mobility & Anti-Clustering**: Multi-vendor spatial optimization to prevent market saturation and optimize travel routes.
