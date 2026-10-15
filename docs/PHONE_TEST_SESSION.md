@@ -6,12 +6,12 @@ notifications, using a real microphone, and closing the app.
 
 **PC state right now** (all verified live):
 - App served over TLS: `https://192.168.148.126:3000` (vite `npm run dev:phone`)
-- API: same-origin proxy `https://192.168.148.126:3000/api/v1` → FastAPI :8000
+- API: same-origin proxy `https://192.168.148.126:3000/api/v1` → FastAPI :8002
 - Dev mini-CA: created (`backend/certs/`), downloadable at
-  `http://192.168.148.126:8000/api/v1/system/ca` (plain HTTP, always reachable)
+  `http://192.168.148.126:8002/api/v1/system/ca` (plain HTTP, always reachable)
 - Login QR now advertises the **https** URL (`lan-info.https: true`)
 - Push: VAPID keys loaded, `push_subscriptions` table cleaned (0 devices)
-- Static IP `192.168.148.126` + firewall rules (3000/8000) confirmed alive
+- Static IP `192.168.148.126` + firewall rules (3000/8002) confirmed alive
 - Fresh vendor token minted for PC-side checks (demo vendor 9876543210 / 1234)
 
 > Why HTTPS matters: service workers, PWA install, Web Push and background
@@ -24,7 +24,7 @@ notifications, using a real microphone, and closing the app.
 
 Android (Chrome):
 1. Phone on the same WiFi as the PC (campus "Alvas WiFi 5G (T)").
-2. Open `http://192.168.148.126:8000/api/v1/system/ca` in Chrome
+2. Open `http://192.168.148.126:8002/api/v1/system/ca` in Chrome
    → downloads `vendorsathi-dev-ca.crt`.
 3. Install it: **Settings → Security → More security settings → Encryption &
    credentials → Install a certificate → CA certificate** (path names vary a
@@ -57,8 +57,8 @@ On the phone:
 
 On the PC (verification hooks):
 ```bash
-TOK=$(curl -s -X POST http://192.168.148.126:8000/api/v1/auth/login -H "Content-Type: application/json" -d '{"phone":"9876543210","password":"1234"}' | python -c "import json,sys;print(json.load(sys.stdin)['data']['access_token'])")
-curl -s -X POST http://192.168.148.126:8000/api/v1/push/test -H "Authorization: Bearer $TOK"
+TOK=$(curl -s -X POST http://192.168.148.126:8002/api/v1/auth/login -H "Content-Type: application/json" -d '{"phone":"9876543210","password":"1234"}' | python -c "import json,sys;print(json.load(sys.stdin)['data']['access_token'])")
+curl -s -X POST http://192.168.148.126:8002/api/v1/push/test -H "Authorization: Bearer $TOK"
 ```
 - Expect `{"ok": true, "sent": 1, ...}` and a **real notification** on the
   phone (screen-off gets a lock-screen alert; vibration pattern fires).
@@ -106,9 +106,9 @@ On the phone:
 
 On the PC (truth check after step 6):
 ```bash
-TOK=$(cat /dev/null; curl -s -X POST http://192.168.148.126:8000/api/v1/auth/login -H "Content-Type: application/json" -d '{"phone":"9876543210","password":"1234"}' | python -c "import json,sys;print(json.load(sys.stdin)['data']['access_token'])")
-curl -s "http://192.168.148.126:8000/api/v1/sync/history?limit=4" -H "Authorization: Bearer $TOK"
-curl -s "http://192.168.148.126:8000/api/v1/orders/vendor?limit=3" -H "Authorization: Bearer $TOK"
+TOK=$(cat /dev/null; curl -s -X POST http://192.168.148.126:8002/api/v1/auth/login -H "Content-Type: application/json" -d '{"phone":"9876543210","password":"1234"}' | python -c "import json,sys;print(json.load(sys.stdin)['data']['access_token'])")
+curl -s "http://192.168.148.126:8002/api/v1/sync/history?limit=4" -H "Authorization: Bearer $TOK"
+curl -s "http://192.168.148.126:8002/api/v1/orders/vendor?limit=3" -H "Authorization: Bearer $TOK"
 ```
 - `sync/history`: the SALE + ORDER_CREATE rows PROCESSED.
 - `orders/vendor`: a NEW `ORD-OFF-…` (the voice carrot order, server-priced).
@@ -138,7 +138,7 @@ closed-app round if you want the notification demonstrated.
 ## Rollback / day-to-day
 
 - Plain-HTTP dev mode unchanged: `npm run dev` (no certs, no proxy needed,
-  API on :8000 directly, QR shows http:// again automatically).
+  API on :8002 directly, QR shows http:// again automatically).
 - Regenerate certs after a LAN IP change: `bash scripts/make-dev-certs.sh`
   (leaf SAN must match the IP), then restart `npm run dev:phone`.
 - `backend/certs/` is gitignored; keep it that way (private CA key).

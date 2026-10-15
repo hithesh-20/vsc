@@ -20,7 +20,7 @@ import { test, expect, Page } from '@playwright/test';
  */
 
 const APP_URL = process.env.E2E_BASE_URL || 'http://localhost:3000';
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://localhost:8002';
 
 async function gotoDashboard(page: Page) {
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
@@ -72,7 +72,7 @@ test.describe('VendorSaathi — 7-step checklist', () => {
     const token = await page.evaluate(() => localStorage.getItem('vs_vendor_token') || '');
     expect(token.split('.').length).toBe(3);
     const me = await page.evaluate(async (tok) => {
-      const r = await fetch(`${'http://localhost:8000'}/api/v1/auth/me`, {
+      const r = await fetch(`${'http://localhost:8002'}/api/v1/auth/me`, {
         headers: { Authorization: `Bearer ${tok}` },
       });
       return r.status;

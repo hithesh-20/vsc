@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """VendorSaathi one-command launcher (Windows-friendly).
 
-Starts the FastAPI backend (uvicorn on :8000) and the Vite frontend
+Starts the FastAPI backend (uvicorn on :8002) and the Vite frontend
 (:3000) as background processes, waits until both answer HTTP, and prints
 the URLs a vendor (or the demo phone on the same WiFi) should use.
 
@@ -9,7 +9,7 @@ Usage:
     python scripts/start.py            # plain HTTP dev mode (default)
     python scripts/start.py --phone    # HTTPS mode for the real phone (PWA/push)
 
-Existing servers are reused: if :8000/:3000 already answer, they are left
+Existing servers are reused: if :8002/:3000 already answer, they are left
 alone so re-running this never spawns duplicate servers.
 """
 
@@ -73,19 +73,19 @@ def main() -> int:
 
     os.makedirs(LOG_DIR, exist_ok=True)
 
-    backend_url = "http://127.0.0.1:8000/"
+    backend_url = "http://127.0.0.1:8002/"
     frontend_url = "http://127.0.0.1:3000/"
 
     started = []
 
     if not _http_ok(backend_url):
-        print("[start] backend starting on :8000 ...")
+        print("[start] backend starting on :8002 ...")
         _spawn([sys.executable, "-m", "uvicorn", "app.main:app",
-                "--host", "0.0.0.0", "--port", "8000"],
+                "--host", "0.0.0.0", "--port", "8002"],
                cwd=BACKEND_DIR, log_name="start-backend.log")
         started.append("backend")
     else:
-        print("[start] backend already running on :8000 - reusing it")
+        print("[start] backend already running on :8002 - reusing it")
 
     if not _http_ok(frontend_url):
         print("[start] frontend starting on :3000 ...")
@@ -106,7 +106,7 @@ def main() -> int:
         print("  Dashboard (this PC):  http://localhost:3000")
         try:
             with urllib.request.urlopen(
-                    "http://127.0.0.1:8000/api/v1/system/lan-info", timeout=3) as r:
+                    "http://127.0.0.1:8002/api/v1/system/lan-info", timeout=3) as r:
                 info = json.loads(r.read().decode())['data']
             print(f"  Phone (same WiFi):    {info['app_url']}")
             if info.get("needs_ca_trust"):

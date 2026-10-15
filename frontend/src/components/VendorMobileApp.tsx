@@ -674,7 +674,7 @@ export const VendorMobileApp: React.FC<VendorMobileAppProps> = ({
         () => {
           setIsGpsLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 8002 }
       );
     } else {
       setIsGpsLoading(false);

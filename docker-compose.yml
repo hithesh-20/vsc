@@ -6,7 +6,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8002:8002"
     environment:
       - PROJECT_NAME=VendorSaathi Backend API
       - API_V1_STR=/api/v1

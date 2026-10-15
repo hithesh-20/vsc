@@ -45,14 +45,14 @@ Double-click:
 
 ### 2. Manual Terminal Launch
 
-**Start Backend (Port 8000):**
+**Start Backend (Port 8002):**
 ```powershell
 cd backend
 .\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8002
 ```
-- **Backend API Root**: `http://localhost:8000`
-- **Interactive Swagger Documentation**: `http://localhost:8000/docs`
+- **Backend API Root**: `http://localhost:8002`
+- **Interactive Swagger Documentation**: `http://localhost:8002/docs`
 
 **Start Frontend (Port 3000):**
 ```powershell

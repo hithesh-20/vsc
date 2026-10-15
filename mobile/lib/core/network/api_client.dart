@@ -5,8 +5,8 @@ import '../storage/outbox_queue_service.dart';
 
 class ApiClient {
   // URLs for Android emulator (10.0.2.2) and Desktop/Localhost (127.0.0.1)
-  static const String emulatorUrl = "http://10.0.2.2:8000/api/v1";
-  static const String localhostUrl = "http://127.0.0.1:8000/api/v1";
+  static const String emulatorUrl = "http://10.0.2.2:8002/api/v1";
+  static const String localhostUrl = "http://127.0.0.1:8002/api/v1";
 
   static String? authToken;
   static String? currentVendorId;

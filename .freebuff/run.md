@@ -1,7 +1,7 @@
 # VendorSaathi — Preview Run Doc
 
-Two servers: FastAPI backend (port 8000) + Vite React frontend (port 3000).
-The frontend calls `http://localhost:8000/api/v1` directly (see `frontend/src/services/api.ts`), so the backend must be running for live data; the frontend falls back to demo data if it is down.
+Two servers: FastAPI backend (port 8002) + Vite React frontend (port 3000).
+The frontend calls `http://localhost:8002/api/v1` directly (see `frontend/src/services/api.ts`), so the backend must be running for live data; the frontend falls back to demo data if it is down.
 
 ## 1. Reproduce the artifacts (fresh checkout)
 
@@ -21,9 +21,9 @@ The frontend calls `http://localhost:8000/api/v1` directly (see `frontend/src/se
 
 ## 2. Run the servers (Windows, detached)
 
-**Backend (port 8000):**
+**Backend (port 8002):**
 ```powershell
-powershell -NoProfile -Command "(Start-Process -FilePath 'python.exe' -ArgumentList '-m','uvicorn','app.main:app','--port','8000' -WorkingDirectory '<repo>\backend' -RedirectStandardOutput '<repo>\.freebuff\preview-backend.log' -RedirectStandardError '<repo>\.freebuff\preview-backend.log.err' -WindowStyle Hidden -PassThru).Id"
+powershell -NoProfile -Command "(Start-Process -FilePath 'python.exe' -ArgumentList '-m','uvicorn','app.main:app','--port','8002' -WorkingDirectory '<repo>\backend' -RedirectStandardOutput '<repo>\.freebuff\preview-backend.log' -RedirectStandardError '<repo>\.freebuff\preview-backend.log.err' -WindowStyle Hidden -PassThru).Id"
 ```
 
 **Frontend (port 3000):**
@@ -34,7 +34,7 @@ powershell -NoProfile -Command "(Start-Process -FilePath 'npm.cmd' -ArgumentList
 - stdout and stderr must go to different files.
 - Confirm with `Get-Process -Id <pid>` and wait for `http://localhost:3000` to answer before registering the preview.
 
-**Health checks:** `GET http://localhost:8000/` → JSON `{"status":"online",...}`; `GET http://localhost:3000/` → 200.
+**Health checks:** `GET http://localhost:8002/` → JSON `{"status":"online",...}`; `GET http://localhost:3000/` → 200.
 
 ## 3. Verify after changes
 
@@ -49,14 +49,14 @@ Live API reference: `docs/API.md` (generated from `/openapi.json`).
 ## 4. Quick voice-assistant sanity check (live server)
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login -H "Content-Type: application/json" -d '{"phone":"9876543210","password":"1234"}' | python -c "import sys,json;print(json.load(sys.stdin)['data']['access_token'])")
-curl -s -X POST http://localhost:8000/api/v1/voice/chat -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"text":"How much did I sell today?","session_id":"smoke"}'
+TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login -H "Content-Type: application/json" -d '{"phone":"9876543210","password":"1234"}' | python -c "import sys,json;print(json.load(sys.stdin)['data']['access_token'])")
+curl -s -X POST http://localhost:8002/api/v1/voice/chat -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"text":"How much did I sell today?","session_id":"smoke"}'
 ```
 
 ## Known quirks (pre-existing, non-fatal)
 - Switching roles fires unmounting fetches → console warnings; UI keeps working.
 - Map tile/fetch burst can log `ERR_INSUFFICIENT_RESOURCES` in Chrome; tiles still render.
-- If port 3000/8000 is busy (other threads may run servers), pick a free port: pass `--port` to uvicorn and `-- --port <n>` to vite (`npm run dev -- --port 5173`).
+- If port 3000/8002 is busy (other threads may run servers), pick a free port: pass `--port` to uvicorn and `-- --port <n>` to vite (`npm run dev -- --port 5173`).
 
 ## Voice Streaming, Wake Word & Receipt Cards (2026-09-24)
 - **POST /api/v1/voice/chat/stream** — SSE variant of /voice/chat. Events (each `data: {json}\n\n`):
@@ -64,7 +64,7 @@ curl -s -X POST http://localhost:8000/api/v1/voice/chat -H "Content-Type: applic
   Frontend renders each delta immediately and starts playing sentence-0 audio before later sentences finish synthesizing.
 - **Wake word**: 🦻 button in assistant input bar toggles continuous hands-free listening for "Saathi" (saathi/sathi/ಸಾಥಿ/साथी/...). After each command it re-arms automatically. Browser limitation: mic pauses when tab hidden — works while app is foregrounded, not screen-off.
 - **Receipt card**: after a confirmed voice order (tool_used=create_order with data.ok), chat shows an ORDER RECEIPT card (order number, item × qty, total) with TRACK ORDER → closes assistant, opens Orders tab (VendorMobileApp voiceTrackSignal).
-- Smoke test: `curl -N -X POST localhost:8000/api/v1/voice/chat/stream -H "Authorization: Bearer $TOKEN" -d '{"text":"How much did I sell today?","session_id":"s1"}'` → meta/delta/audio_chunk/final lines.
+- Smoke test: `curl -N -X POST localhost:8002/api/v1/voice/chat/stream -H "Authorization: Bearer $TOKEN" -d '{"text":"How much did I sell today?","session_id":"s1"}'` → meta/delta/audio_chunk/final lines.
 
 ## Web Push: New Order Notifications (2026-09-24)
 - **Endpoints**: GET /api/v1/push/vapid-public-key · POST /push/subscribe (upsert per endpoint) · POST /push/unsubscribe · POST /push/test.
@@ -170,7 +170,7 @@ curl -s -X POST http://localhost:8000/api/v1/voice/chat -H "Content-Type: applic
 - docs/PHONE_TESTING_SCRIPT.md TEST 8 extended: now queues BOTH a POS sale AND an offline voice order ("I need 1 kg carrot") before closing the app, and the lock-screen push pass criteria explicitly expect the order named as "Order ORD-OFF-… ₹N" (server-priced total) alongside "POS sale". Both actions must land in the Synced timeline with real numbers (scorecard row 8 renamed accordingly). The airplane-mode → queue → close → reconnect flow itself was already present; this makes the order+push coverage explicit per the request.
 
 ## SYNC_COMPLETE Deep-Link Highlight — Verified End-to-End (2026-09-26)
-- Final live verification of the push → `/?screen=sync&confirmed=<ids>` → SyncAuditScreen highlight chain, after Freebuff restart: backend (8000) + frontend (3000) relaunched.
+- Final live verification of the push → `/?screen=sync&confirmed=<ids>` → SyncAuditScreen highlight chain, after Freebuff restart: backend (8002) + frontend (3000) relaunched.
 - Method: seeded a fresh offline ORDER_CREATE via the outbox (`hl-muim3jj4`), let the app flush it (client sync log got the entry), then cold-loaded `/?screen=sync&confirmed=hl-muim3jj4`.
 - Debug instrumentation (console logs in the deep-link effect, the audit screen's retry effect, and onHighlightDone) proved the full cycle on a clean load: `cold-start parse → openScreen → state = (more, sync, [ids]) → highlight effect on → retry loop finds the row → scrollIntoView + flashOn → 6s window → onHighlightDone → ids cleared`. Probes captured the flash window twice: `data-highlighted=true` rows = 1, `animate-pulse-once` class present, "from your notification" chip visible.
 - Screenshots confirm the cold start lands on the Offline Sync Audit screen with the just-synced order at the top of the Synced timeline ("Voice Order — ORD-OFF-A22447 · ₹50"). The emerald ring is transient (6 s) and the screenshot round-trip usually lands just after it; the DOM probes are the authoritative evidence.
@@ -180,9 +180,9 @@ curl -s -X POST http://localhost:8000/api/v1/voice/chat -H "Content-Type: applic
 - Backend tests: **71 passed** (full suite); backend now started with `--host 0.0.0.0` (see below).
 
 ## Phone-on-WiFi: Shared API_BASE Everywhere + LAN-Bound Backend (2026-09-26)
-- Replaced every hardcoded `http://localhost:8000/api/v1/...` fetch with the shared `API_BASE` from `frontend/src/services/api.ts` — **41 call sites across 3 components**: VendorMobileApp.tsx (23), VendorTerminal.tsx (17), VillageCartMap.tsx (1). Single-quoted URLs converted to `` `${API_BASE}/...` `` template literals; import auto-inserted (all three already had one).
-- `getApiBase()` already did the right thing: `VITE_API_BASE_URL` env override → on a non-localhost hostname uses `window.location.hostname:8000` (so a phone browsing `http://192.168.148.126:3000` automatically targets `http://192.168.148.126:8000`) → localhost fallback for PC dev. Only the intentional default inside `getApiBase()` still mentions localhost (grep-verified).
-- Backend now listens on **0.0.0.0:8000** (was 127.0.0.1) — `curl http://192.168.148.126:8000/` returns 200, so phones on the same WiFi can reach the API. Frontend dev server already runs with `--host`.
+- Replaced every hardcoded `http://localhost:8002/api/v1/...` fetch with the shared `API_BASE` from `frontend/src/services/api.ts` — **41 call sites across 3 components**: VendorMobileApp.tsx (23), VendorTerminal.tsx (17), VillageCartMap.tsx (1). Single-quoted URLs converted to `` `${API_BASE}/...` `` template literals; import auto-inserted (all three already had one).
+- `getApiBase()` already did the right thing: `VITE_API_BASE_URL` env override → on a non-localhost hostname uses `window.location.hostname:8002` (so a phone browsing `http://192.168.148.126:3000` automatically targets `http://192.168.148.126:8002`) → localhost fallback for PC dev. Only the intentional default inside `getApiBase()` still mentions localhost (grep-verified).
+- Backend now listens on **0.0.0.0:8002** (was 127.0.0.1) — `curl http://192.168.148.126:8002/` returns 200, so phones on the same WiFi can reach the API. Frontend dev server already runs with `--host`.
 - `tsc --noEmit` clean; live reload verified (vendor dashboard renders, SW serving v1.5.1).
 
 ## MySQL Workbench Migration — Backend MySQL-Ready + Importable Dump (2026-09-26)
@@ -192,11 +192,11 @@ curl -s -X POST http://localhost:8000/api/v1/voice/chat -H "Content-Type: applic
 - **Driver**: `pymysql>=1.1.0` added to requirements.txt (only needed when DATABASE_URL targets MySQL; not installed locally yet — no MySQL server is running on this machine, so live-against-MySQL was not possible here).
 - **Guide**: `docs/MYSQL_WORKBENCH_SETUP.md` — import steps, `.env` line (`DATABASE_URL=mysql+pymysql://root:PASSWORD@localhost:3306/vendorsathi?charset=utf8mb4`), verification queries, demo logins table, dump re-generation command. charset=utf8mb4 note for Kannada text round-trip.
 - User plan: they will import the dump into MySQL Workbench themselves ("after all done I'll upload the workbench one"); when they do, dropping the `.env` line + `pip install pymysql` is all that remains.
-- Verified after DB-layer changes: backend restarted on 0.0.0.0:8000 → 200, full test suite 71 passed (SQLite path), app live in preview against the restarted backend.
+- Verified after DB-layer changes: backend restarted on 0.0.0.0:8002 → 200, full test suite 71 passed (SQLite path), app live in preview against the restarted backend.
 
 ## Phone Script: WiFi URL Explained + IP-Recovery Steps (2026-09-26)
-- docs/PHONE_TESTING_SCRIPT.md STEP 0 rewritten for the WiFi/API_BASE work: now shows the full `http://192.168.148.126:3000` URL, explains in plain language that it's the computer's address on the WiFi ("phone number" analogy) and that the phone only ever types ONE address (the app auto-targets the same PC on port 8000 after login — matches getApiBase()'s hostname behavior).
-- New subsection "If the page doesn't load: the computer's address may have changed": step-by-step `ipconfig` → IPv4 Address walkthrough for non-technical testers (Windows key → cmd → ipconfig → Wireless LAN adapter Wi-Fi → IPv4), how to re-type the URL with the new number, plus an ordered checklist (same WiFi name, servers running via localhost:3000 check, Windows Firewall allow 3000+8000) and a DHCP-reservation tip to pin the IP forever.
+- docs/PHONE_TESTING_SCRIPT.md STEP 0 rewritten for the WiFi/API_BASE work: now shows the full `http://192.168.148.126:3000` URL, explains in plain language that it's the computer's address on the WiFi ("phone number" analogy) and that the phone only ever types ONE address (the app auto-targets the same PC on port 8002 after login — matches getApiBase()'s hostname behavior).
+- New subsection "If the page doesn't load: the computer's address may have changed": step-by-step `ipconfig` → IPv4 Address walkthrough for non-technical testers (Windows key → cmd → ipconfig → Wireless LAN adapter Wi-Fi → IPv4), how to re-type the URL with the new number, plus an ordered checklist (same WiFi name, servers running via localhost:3000 check, Windows Firewall allow 3000+8002) and a DHCP-reservation tip to pin the IP forever.
 - "You need" list gained the URL line pointing at STEP 0. Verified `ipconfig` still reports 192.168.148.126 — documented URL is current. Doc-only change; no code touched.
 
 ## Login-Screen QR: Phones Join by Scanning, Zero Typing (2026-09-26)
@@ -220,10 +220,10 @@ curl -s -X POST http://localhost:8000/api/v1/voice/chat -H "Content-Type: applic
 - **Elevation debugging journey** (for future turns): two elevated runs of the .bat silently did nothing (exit 0, no effect, no output captured) — the elevation helper mangles commands with quoted/spacey paths. Working pattern: stage the script at a **spaceless path** (C:\Users\Public\…), elevate `powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\Public\<script>.ps1` (no quoting needed), log via Start-Transcript. Also: a PS 5.1 parse error on `?.` (null-conditional, PS7-only) failed the first .ps1 — write 5.1-compatible script. Staged scripts cleaned up after; kept in repo as scripts/pin_wifi_ip.bat (self-logging) + scripts/allow_phone_firewall.ps1.
 
 ## Phone Onboarding Fixed: Firewall Was Eating the OTP (2026-09-26)
-- **Root cause of "language → number → nothing happens" on phones**: React flow itself is strictly sequential (splash→language→phone→otp→signup→dashboard; code re-verified). Real blocker: WiFi profiles as **Public** with **zero inbound rules for 3000/8000** — the phone loaded the UI from :3000 but every OTP POST to :8000 was silently dropped by Windows Firewall (fetch TypeError, previously swallowed as a vague "Failed to send OTP").
-- **Fix 1 — firewall**: two scoped inbound allow rules added (admin, idempotent, verified): `VendorSaathi Frontend (3000)` + `VendorSaathi Backend (8000)`, TCP, profiles Domain+Private+Public, `remoteip=192.168.128.0/19` (campus subnet only). Saved to repo as scripts/allow_phone_firewall.ps1.
+- **Root cause of "language → number → nothing happens" on phones**: React flow itself is strictly sequential (splash→language→phone→otp→signup→dashboard; code re-verified). Real blocker: WiFi profiles as **Public** with **zero inbound rules for 3000/8002** — the phone loaded the UI from :3000 but every OTP POST to :8002 was silently dropped by Windows Firewall (fetch TypeError, previously swallowed as a vague "Failed to send OTP").
+- **Fix 1 — firewall**: two scoped inbound allow rules added (admin, idempotent, verified): `VendorSaathi Frontend (3000)` + `VendorSaathi Backend (8002)`, TCP, profiles Domain+Private+Public, `remoteip=192.168.128.0/19` (campus subnet only). Saved to repo as scripts/allow_phone_firewall.ps1.
 - **Fix 2 — UX**: OnboardingScreens now hides the QR card entirely when the app itself is viewed from a non-localhost host (phones see a clean language picker first; scanning your own screen is pointless); OTP send failures that are network TypeErrors now show a plain bilingual message ("Cannot reach the server — check the computer is on and both devices are on the same WiFi" / Kannada) instead of a generic error.
-- **Live proof over the LAN URL (what a phone sees)**: http://192.168.148.126:3000 with cleared session → language screen (QR hidden) → English → Continue → phone step → typed 9876543210 → Send OTP **succeeded across the port-8000 boundary** → OTP step with 6 boxes + demo code → Auto-fill → vendor dashboard (role VENDOR). tsc clean.
+- **Live proof over the LAN URL (what a phone sees)**: http://192.168.148.126:3000 with cleared session → language screen (QR hidden) → English → Continue → phone step → typed 9876543210 → Send OTP **succeeded across the port-8002 boundary** → OTP step with 6 boxes + demo code → Auto-fill → vendor dashboard (role VENDOR). tsc clean.
 - New doc docs/STATIC_IP_SETUP.md records the full diagnosis, exact netsh + firewall commands, verification steps, rollback, and caveats (campus re-numbering; different WiFi → back to DHCP).
 
 ## Phone Test Run: 8-Test Scorecard over LAN URL (2026-09-27, partially cut off)
@@ -259,7 +259,7 @@ Phone test run is now COMPLETE — all 8 tests executed and recorded. Servers re
 
 ### TEST 8 — Background sync with the app closed (PASS — full SW drain verified)
 The accepted simulation: SW's `FLUSH_OUTBOX_NOW` message runs the exact same `flushOutboxFromIdb()` as the browser's `sync` event.
-- **Setup**: fresh vendor token via `/auth/login` (old 24h token had expired); seeded 2 FRESH mutations (SALE ₹100 = 2kg carrot @ ₹50 real product id `331dc094…`; ORDER_CREATE 1kg carrot voice shape, `total_amount: 0` → server prices at current rate) into `vs_offline_queue_v2` + the IDB mirror (`vs-outbox-db`/kv/'mirror': items + token + login{9876543210,1234} + api_base LAN:8000).
+- **Setup**: fresh vendor token via `/auth/login` (old 24h token had expired); seeded 2 FRESH mutations (SALE ₹100 = 2kg carrot @ ₹50 real product id `331dc094…`; ORDER_CREATE 1kg carrot voice shape, `total_amount: 0` → server prices at current rate) into `vs_offline_queue_v2` + the IDB mirror (`vs-outbox-db`/kv/'mirror': items + token + login{9876543210,1234} + api_base LAN:8002).
 - **SW drained it all**: `postMessage({type:'FLUSH_OUTBOX_NOW'})` → received BOTH `OUTBOX_SYNCED {confirmed:[both ids], remaining:0, details:{order:{order_number:'ORD-OFF-CD7380', total:50}}}` and `OUTBOX_FLUSH_RESULT {sent:2, remaining:0}`.
 - **Server truth**: `/sync/history` → both PROCESSED; `/orders/vendor` → **ORD-OFF-CD7380 · ₹50 · PENDING** (voice-order server-side pricing contract works).
 - **Page reactions (app open)**: outbox pruned to 0; sync-log top entry `via:'sw'` with real order number + total; Ask Saathi chat showed **"✓ Offline POS Sale synced — Walk-in Cash Customer · ₹100 · 1 item(s)"** and **"✓ Your offline order synced — ORD-OFF-CD7380 · ₹50. You can track it now!"** (Play TTS buttons click clean); Cloud Sync audit screen shows **"Synced 09:59 PM · app was closed"** with both actions listed.
@@ -291,14 +291,14 @@ After last session unified the two voice UIs (Voice tab + FAB → one Ask Saathi
 ## Real-Phone Session Prepared: LAN HTTPS + PWA Bootstrap (2026-09-28)
 Everything server-side for TEST 6/7/8 on a real phone is now in place; the runbook is docs/PHONE_TEST_SESSION.md. Root problem solved: SW/PWA/push/background-sync need a SECURE context, and http://<lan-ip> is insecure — so the phone gets TLS with a trusted self-hosted dev CA.
 - **Dev PKI**: mini-CA + leaf cert via openssl (`scripts/make-dev-certs.sh`, reusable) → `backend/certs/{ca,dev}.{crt,key}`, leaf SAN = 192.168.148.126 + localhost + 127.0.0.1, 825-day leaf (iOS-friendly), gitignored.
-- **Frontend**: `npm run dev:phone` (new package.json script; trigger via npm_lifecycle_event so it's cross-platform, VITE_HTTPS=1 as manual override) starts vite with the TLS cert + a same-origin `/api` → localhost:8000 proxy; `main.tsx` points API_BASE at `origin/api/v1` whenever served over HTTPS → phone is fully same-origin (no mixed content). Plain `npm run dev` unchanged.
+- **Frontend**: `npm run dev:phone` (new package.json script; trigger via npm_lifecycle_event so it's cross-platform, VITE_HTTPS=1 as manual override) starts vite with the TLS cert + a same-origin `/api` → localhost:8002 proxy; `main.tsx` points API_BASE at `origin/api/v1` whenever served over HTTPS → phone is fully same-origin (no mixed content). Plain `npm run dev` unchanged.
 - **Backend**: `/system/lan-info` is scheme-aware (new `https` + `needs_ca_trust` fields — reports https:// when certs exist), `/system/lan-qr` therefore encodes the https URL, and new public `GET /system/ca` serves the mini-CA PEM for the phone trust step. Fixed an off-by-one in the certs-path resolution (used `Path(__file__).resolve().parents[4]` after two wrong attempts — and proved to myself it wasn't stale bytecode by asking Python which file it was executing).
 - **Verified live**: vite serves `https://192.168.148.126:3000` (plain http on 3000 gone); full CHAIN verification passes (openssl-style python ssl context with ca.crt loaded → verify OK; Windows-curl needed `--ssl-no-revoke` — schannel quirk, not a cert problem); proxied API 200; OTP login THROUGH the :3000 proxy returns VENDOR token; `lan-info` now `{app_url: https://…, https: true, needs_ca_trust: true}`; `/system/ca` 200 PEM 1184B. Test-suite push rows re-cleaned from the live DB (pytest writes into vendorsathi.db); push/test again reports the no-devices message; fresh vendor token minted. 41 system+assistant tests pass; tsc clean.
 - Preview note: the Freebuff preview Chromium does NOT trust the dev CA (expected) — it stays on plain-HTTP doors (e.g. FastAPI /docs); the PHONE is the real verification device now. PC-side phone-equivalence for TLS was done via full-chain curl + python ssl.
 - Next physical step (needs hands): docs/PHONE_TEST_SESSION.md Phase 0 (trust CA → open https URL → Install PWA → login), then TEST 6 Enable Alerts + push/test from PC, TEST 7 wake word with real mic, TEST 8 airplane-mode outbox + swipe-away + WiFi back + lock-screen push.
 
 ## FINAL PRODUCT-READINESS CHECK (2026-09-30)
-Whole-product pass after the Freebuff restart: servers restarted (backend :8000, frontend :3000 plain-HTTP dev mode for preview; HTTPS phone mode unchanged and ready via `npm run dev:phone`), full analysis sweep, two real product defects found and fixed at the root, everything re-verified end-to-end.
+Whole-product pass after the Freebuff restart: servers restarted (backend :8002, frontend :3000 plain-HTTP dev mode for preview; HTTPS phone mode unchanged and ready via `npm run dev:phone`), full analysis sweep, two real product defects found and fixed at the root, everything re-verified end-to-end.
 
 ### Defect 1 (critical, fixed): silent demo re-login masked dead sessions everywhere
 **Symptom that exposed it:** Ask Saathi panel answered "You're offline and I have no saved answer" on a working network — `POST /voice/chat/stream → 401` fell into the panel's offline-fallback branch (which catches ALL stream errors, not just network ones). Dashboard meanwhile showed "live" data.
@@ -315,7 +315,7 @@ Detached, log-redirected launcher for both servers; reuses already-running ones;
 ### Final test output (2026-09-30)
 - Backend: `python -m pytest tests/ -q` → **74 passed**, 1 benign warning, **live DB byte-identical after the run**
 - Frontend: `npx tsc --noEmit` → **clean (exit 0)**
-- Live servers: frontend `http://localhost:3000` 200 · backend `:8000` 200; lan-info `https://192.168.148.126:3000` (https:true, needs_ca_trust:true — phone runbook docs/PHONE_TEST_SESSION.md)
+- Live servers: frontend `http://localhost:3000` 200 · backend `:8002` 200; lan-info `https://192.168.148.126:3000` (https:true, needs_ca_trust:true — phone runbook docs/PHONE_TEST_SESSION.md)
 - UI E2E: boot → dashboard all cards live (₹200 today / ₹80 profit / 225 orders / ₹14,600 udhaar) → Ask Saathi real-data answer → stock mutation 200 → cold-boot self-mint
 - API smoke: auth/login, orders/vendor, sales/history, sales/analytics/profit, products, inventory/history, push/vapid-public-key all 200; voice brain real-data replies verified (en + kn via prior session)
 

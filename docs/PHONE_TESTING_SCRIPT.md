@@ -24,7 +24,7 @@ http://192.168.148.126:3000
 2. **Easiest way — no typing at all:** open the app on the computer (`http://localhost:3000`); the language screen shows a **"Open on your phone — scan, no typing"** card with a QR code and the current address. Point the phone's camera at it, tap the link it offers, done. (If you'd rather type it, use the address at the top of this section — and if it doesn't load, the next subsection shows how to re-find the current one.)
 3. On the phone, connect to the **same WiFi** as the computer, then open **Chrome**.
 4. In the address bar at the top, type exactly the address above and press **Go**. You should see the VendorSaathi language screen.
-   - That's the **only** address you ever type. After login, the app automatically talks to the same computer on port 8000 — no second setup needed.
+   - That's the **only** address you ever type. After login, the app automatically talks to the same computer on port 8002 — no second setup needed.
 5. *(Optional, recommended)* Tap the **⋮** menu (three dots, top-right) → **Add to Home screen** → **Install**. Now the app has its own icon like a real app and opens fullscreen.
 
 ### If the page doesn't load: the computer's address may have changed
@@ -46,7 +46,7 @@ Still not loading? Check these in order:
 
 - **Same WiFi:** phone and computer must be on the same router (same WiFi name — not one on guest WiFi and one on main).
 - **Servers running:** on the computer, `http://localhost:3000` in Chrome must open the app. If it doesn't, the servers aren't running yet — nothing will work from the phone until they do.
-- **Windows Firewall:** the first time the servers start, Windows may ask "Allow access?" — tick **Private networks** and click **Allow**. If no popup ever came, ask the developer to allow **ports 3000 and 8000** through the firewall.
+- **Windows Firewall:** the first time the servers start, Windows may ask "Allow access?" — tick **Private networks** and click **Allow**. If no popup ever came, ask the developer to allow **ports 3000 and 8002** through the firewall.
 - **Tip to stop the address changing:** in the router's admin page (usually `192.168.0.1` or `192.168.1.1` in the browser), give this computer a **fixed / reserved IP** (search the web for "DHCP reservation <your router name>"). Then the phone URL works forever.
 
 ---

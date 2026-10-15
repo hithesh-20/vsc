@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
+        "http://localhost:8002",
+        "http://127.0.0.1:8002",
         "*",
     ]
 
@@ -42,6 +42,24 @@ class Settings(BaseSettings):
     OPENROUTESERVICE_API_KEY: str = ""
     BHASHINI_API_KEY: str = ""
     BHASHINI_USER_ID: str = ""
+
+    # SMS / OTP delivery (MSG91 — India)
+    # Leave AUTH_KEY empty to keep OTP delivery in demo mode (code returned in the API response).
+    # To send real SMS set AUTH_KEY, SENDER_ID and TEMPLATE_ID (all DLT-registered in India).
+    MSG91_AUTH_KEY: str = ""
+    MSG91_SENDER_ID: str = ""
+    MSG91_TEMPLATE_ID: str = ""
+    MSG91_ROUTE: str = "4"           # 4 = transactional
+    MSG91_OTP_VAR: str = "VAR1"      # template variable that carries the OTP
+    MSG91_COUNTRY_CODE: str = "91"
+    MSG91_API_URL: str = "https://control.msg91.com/api/v5/flow/"
+
+    # SMS / OTP delivery via Fast2SMS (India, free ₹50 credit, OTP route needs no DLT).
+    # Sign up at fast2sms.com, copy the Dev API authorization key, and set FAST2SMS_API_KEY.
+    # This takes priority over MSG91 when both are configured.
+    FAST2SMS_API_KEY: str = ""
+    FAST2SMS_ROUTE: str = "otp"      # Fast2SMS reaches any Indian number on this route
+    FAST2SMS_API_URL: str = "https://www.fast2sms.com/dev/bulkV2"
 
     model_config = SettingsConfigDict(
         env_file=".env",

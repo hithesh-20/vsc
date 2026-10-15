@@ -57,7 +57,7 @@ VendorSaathi is a native Flutter mobile application built for rural and roadside
 ### 1. Start the FastAPI Backend (Optional / Resilient)
 ```bash
 cd backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8002 --reload
 ```
 *Note: The app contains offline fallbacks and local caches, so it works seamlessly even if the backend is temporarily offline.*
 

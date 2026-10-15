@@ -1,6 +1,6 @@
 # VendorSaathi API Reference
 
-Base URL: `http://localhost:8000/api/v1` — interactive docs: `/docs` (Swagger UI), `/redoc`.
+Base URL: `http://localhost:8002/api/v1` — interactive docs: `/docs` (Swagger UI), `/redoc`.
 All endpoints except `/auth/login`, `/auth/register` and `/auth/otp/*` require the header `Authorization: Bearer <JWT>`.
 
 ## Health

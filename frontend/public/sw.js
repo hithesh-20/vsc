@@ -276,7 +276,7 @@ self.addEventListener('fetch', (event) => {
   // request, real failure when the server is down.
   if (url.pathname.endsWith('/system/health')) return;
 
-  // Backend API — the app calls http://<host>:8000/api/v1 (cross-origin in
+  // Backend API — the app calls http://<host>:8002/api/v1 (cross-origin in
   // dev, same-origin in some deploys). Network first, cache fallback so the
   // app still shows orders/stock offline. Responses are stored with
   // Vary: Authorization so one vendor can never see another vendor's data.

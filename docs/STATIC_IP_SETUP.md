@@ -52,7 +52,7 @@ PrefixOrigin:       Manual      ← was Dhcp
 
 The WiFi profiles as **Public**, and Windows Firewall had **no inbound rules**
 for the app's ports. Phones could load the UI from port 3000, but the OTP
-request to port **8000** was silently dropped — the login flow appeared to
+request to port **8002** was silently dropped — the login flow appeared to
 "freeze" after entering the mobile number.
 
 Fixed with two scoped rules (saved as `scripts/allow_phone_firewall.ps1`,
@@ -60,7 +60,7 @@ admin required):
 
 ```bat
 netsh advfirewall firewall add rule name="VendorSaathi Frontend (3000)" dir=in action=allow protocol=TCP localport=3000 remoteip=192.168.128.0/19
-netsh advfirewall firewall add rule name="VendorSaathi Backend (8000)" dir=in action=allow protocol=TCP localport=8000 remoteip=192.168.128.0/19
+netsh advfirewall firewall add rule name="VendorSaathi Backend (8002)" dir=in action=allow protocol=TCP localport=8002 remoteip=192.168.128.0/19
 ```
 
 Scoped to the campus subnet only — the PC is not exposed to the internet.
@@ -70,7 +70,7 @@ Scoped to the campus subnet only — the PC is not exposed to the internet.
 ```powershell
 netsh interface ipv4 show addresses "Wi-Fi"        # DHCP enabled: No
 Get-NetIPAddress -InterfaceAlias 'Wi-Fi' -AddressFamily IPv4
-curl http://192.168.148.126:8000/                  # 200 from the PC itself
+curl http://192.168.148.126:8002/                  # 200 from the PC itself
 # and from a phone: http://192.168.148.126:3000 → login flow completes
 ```
 
@@ -80,7 +80,7 @@ curl http://192.168.148.126:8000/                  # 200 from the PC itself
 netsh interface ipv4 set address name="Wi-Fi" source=dhcp
 netsh interface ipv4 set dnsservers name="Wi-Fi" source=dhcp
 netsh advfirewall firewall delete rule name="VendorSaathi Frontend (3000)"
-netsh advfirewall firewall delete rule name="VendorSaathi Backend (8000)"
+netsh advfirewall firewall delete rule name="VendorSaathi Backend (8002)"
 ```
 
 **Caveats:** if the campus network ever re-numbers itself (different subnet/

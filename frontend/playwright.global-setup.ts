@@ -8,7 +8,7 @@ import http from 'http';
  * the dev servers the user (or Freebuff preview) has up.
  */
 const APP_URL = process.env.E2E_BASE_URL || 'http://localhost:3000';
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://localhost:8002';
 
 function httpOk(url: string): Promise<boolean> {
   return new Promise((resolve) => {

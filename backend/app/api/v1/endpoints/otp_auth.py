@@ -16,6 +16,7 @@ from app.schemas.otp import (
     OtpSignupRequest, CompleteResponse,
 )
 from app.schemas.common import APIResponse, MessageResponse
+from app.services import sms_service
 
 router = APIRouter()
 
@@ -73,8 +74,11 @@ def request_otp(payload: OtpRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(challenge)
 
-    # DEMO_MODE: in production this is where an SMS provider (MSG91/Twilio) would be called.
-    demo_code = code if settings.DEMO_MODE else None
+    # Send the code via the configured SMS gateway (MSG91). When delivery is not
+    # possible (no credentials, or the provider fails) and DEMO_MODE is on, the
+    # code is returned inline so the flow still works during demos/testing.
+    sent = sms_service.send_otp_sms(phone, code)
+    demo_code = code if (settings.DEMO_MODE and not sent) else None
 
     is_new_user = not db.query(User).filter(User.phone == phone).first()
     return APIResponse(

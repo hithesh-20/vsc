@@ -141,7 +141,7 @@ def lan_qr():
 def dev_ca():
     """Serve the dev mini-CA certificate so phones can trust the LAN TLS.
 
-    The phone flow is: open http://<lan-ip>:8000/api/v1/system/ca (plain HTTP,
+    The phone flow is: open http://<lan-ip>:8002/api/v1/system/ca (plain HTTP,
     always available) → Android "install a certificate" → VPN & apps /
     install unknown certificates → pick the downloaded file → name it, install.
     After that https://<lan-ip>:3000 is a trusted secure context. Development

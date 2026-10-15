@@ -33,4 +33,4 @@ openssl x509 -req -in dev.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
 
 rm -f dev.csr san.cnf ca.srl
 echo "OK — backend/certs/{ca.crt,ca.key,dev.crt,dev.key} ready (leaf valid 825 days, iOS-friendly)."
-echo "Next: npm run dev:phone, then on the phone open http://<this-ip>:8000/api/v1/system/ca and trust the CA."
+echo "Next: npm run dev:phone, then on the phone open http://<this-ip>:8002/api/v1/system/ca and trust the CA."

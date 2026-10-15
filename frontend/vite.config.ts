@@ -36,11 +36,11 @@ export default defineConfig({
     host: true,
     https: devHttps(),
     // Same-origin API under HTTPS: the phone talks only to :3000, and vite
-    // proxies /api/* to the FastAPI backend on :8000. (On plain HTTP the app
-    // keeps calling :8000 directly — see getApiBase() in services/api.ts.)
+    // proxies /api/* to the FastAPI backend on :8002. (On plain HTTP the app
+    // keeps calling :8002 directly — see getApiBase() in services/api.ts.)
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8002',
         changeOrigin: true,
       },
     },

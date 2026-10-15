@@ -52,7 +52,7 @@ use your MySQL root password:
 DATABASE_URL=mysql+pymysql://root:YOUR_PASSWORD@localhost:3306/vendorsathi?charset=utf8mb4
 ```
 
-Then start the backend normally (`python -m uvicorn app.main:app --port 8000`).
+Then start the backend normally (`python -m uvicorn app.main:app --port 8002`).
 If the app boots, you are on MySQL — check in Workbench with
 `SELECT COUNT(*) FROM sales;` while using the app, or look at the sidenav
 tables filling up.

@@ -1,5 +1,11 @@
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class BecomeVendorRequest(BaseModel):
+    """Payload for converting a signed-in customer account into a vendor account."""
+
+    business_name: str = Field(default="New Vendor Store", min_length=2, max_length=150)
 
 
 class VendorProfileResponse(BaseModel):
