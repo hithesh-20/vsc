@@ -7,7 +7,7 @@ from app.core.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
-
+# lorem
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against the stored bcrypt hash."""
     try:
